@@ -34,14 +34,14 @@ UNIT_GENERATOR_API_KEY="...API_KEY"
 UNIT_GENERATOR_MODEL="gpt-4o-mini"
 ```
 5. Setup project with [Jest](https://www.npmjs.com/package/jest)
-```json
+```js
 {
 	// Cobertura reporter is required
-    "coverageReporters": ["cobertura"],
-    // Recommend
-    "collectCoverageFrom": ["<rootDir>/src/**/*.ts"],
-    // Recommend
-    "passWithNoTests": true,
+  "coverageReporters": ["cobertura"],
+  // Recommend
+  "collectCoverageFrom": ["<rootDir>/src/**/*.ts"],
+  // Recommend
+  "passWithNoTests": true,
 }
 ```
 6. Install the [@n1k1t/unit-generator](#install)
