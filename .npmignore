@@ -1,0 +1,10 @@
+.editorconfig
+.gitignore
+
+tsconfig.json
+
+.vscode/
+.husky/
+src/
+images/
+coverage/
