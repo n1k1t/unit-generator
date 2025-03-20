@@ -36,7 +36,7 @@ UNIT_GENERATOR_MODEL="gpt-4o-mini"
 5. Setup project with [Jest](https://www.npmjs.com/package/jest)
 ```js
 {
-	// Cobertura reporter is required
+  // Cobertura reporter is required
   "coverageReporters": ["cobertura"],
   // Recommend
   "collectCoverageFrom": ["<rootDir>/src/**/*.ts"],
