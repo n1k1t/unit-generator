@@ -42,7 +42,7 @@ program
     new Command()
       .command('summary')
       .description('Returns an overall coverage in the project')
-      .option('-f --format [value]', 'Output format', 'table')
+      .option('-f --format [table|number]', 'Output format', 'table')
       .action(async (options: IUnitGeneratorCliOptions['summary']) => {
         const extracted = await extractOverallCoverage(path.join(process.cwd(), env.cobertura));
 

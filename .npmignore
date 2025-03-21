@@ -1,10 +1,17 @@
 .editorconfig
 .gitignore
+.nvmrc
+.env
 
+discardedTests.txt
+keploy-logs.txt
 tsconfig.json
+keploy.yml
 
 .vscode/
 .husky/
-src/
-images/
+
 coverage/
+images/
+types/
+src/

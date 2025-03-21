@@ -20,7 +20,7 @@ export const extractOverallCoverage = async (cobertura: string): Promise<{ times
 
   return {
     timestamp: new Date(Number(coverage.coverage['@_timestamp'])),
-    rate: Number(Number(coverage.coverage['@_line-rate']).toFixed(3)),
+    rate: Number((Number(coverage.coverage['@_line-rate']) || 0).toFixed(3)),
   };
 };
 
