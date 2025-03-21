@@ -16,4 +16,5 @@ images/
 types/
 src/
 
+/**/*.tsbuildinfo
 /lib/**/*.spec.*
