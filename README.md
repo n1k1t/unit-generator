@@ -9,7 +9,6 @@
 
   ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
   ![npm version](https://badge.fury.io/js/@n1k1t%2Funit-generator.svg)
-
   ![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fgithub.com%2Fn1k1t%2Funit-generator%2Fblob%2Fmaster%2Fcoverage%2Fcobertura-coverage.xml%3Fraw%3Dtrue&query=round(%2Fcoverage%2F%40line-rate%20*%201000)%20div%201000&label=coverage)
 </div>
 
