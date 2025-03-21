@@ -17,5 +17,7 @@ npm-debug.log
 keploy.yml
 
 node_modules/
-coverage/
+coverage/**
 lib/
+
+!coverage/cobertura-coverage.xml

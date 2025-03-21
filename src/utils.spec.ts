@@ -2,6 +2,8 @@ import { jest } from '@jest/globals';
 import fs from 'fs/promises';
 
 import { renderProcessedCoverage, extractOverallCoverage, extractFilesCoverage } from './utils';
+import { actualizeProcessedCoverageRate } from './utils';
+import { extractIgnorePaths } from './utils';
 import { cast } from './utils';
 
 it('should cast value', () => expect(cast('test')).toEqual('test'));
@@ -89,3 +91,44 @@ it('should throw an error for invalid XML format', async () => {
 
   await expect(extractFilesCoverage('invalid/path/to/cobertura.xml')).rejects.toThrow();
 });
+
+// Test generated using Keploy
+it('should return correct timestamp and rate for a valid coverage file', async () => {
+  const content = `
+  <coverage timestamp="123456789" line-rate="0.75">
+  </coverage>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
+
+  const result = await extractOverallCoverage('valid/path/to/cobertura.xml');
+  expect(result.timestamp).toEqual(new Date(123456789));
+  expect(result.rate).toBeCloseTo(0.75, 3);
+});
+
+// Test generated using Keploy
+it('should update the rate of processed coverage with refreshed data', async () => {
+  const processedCoverage = [{ cobertura: 'report.xml', rate: 0.5 }];
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(`
+    <coverage>
+      <packages>
+        <package>
+          <classes>
+            <class filename="file1.js" line-rate="1.0" />
+          </classes>
+        </package>
+      </packages>
+    </coverage>`);
+
+  await actualizeProcessedCoverageRate('valid/path/to', <any>processedCoverage);
+
+  expect(processedCoverage[0].rate).toEqual(1.0);
+});
+
+// Test generated using Keploy
+it('should read and return paths from .unitignore file', async () => {
+  const ignoreContent = 'path1/\npath2/\n';
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(ignoreContent);
+
+  const result = await extractIgnorePaths('valid/path/to');
+  expect(result).toEqual(['path1/', 'path2/']);
+});
+
