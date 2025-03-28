@@ -182,6 +182,7 @@ Options:
   -i, --iterations [value]  Iterations maximum of unit tests generation (default: "5")
   -l --limit [value]        Files limit (default: "5")
   -v --verbose              Replaces pretty table with a raw Keploy as output (default: false)
+  -a --all                  Takes all paths provided by pattern (default: false)
   -h, --help                display help for command
 ```
 
