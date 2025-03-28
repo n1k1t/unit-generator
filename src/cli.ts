@@ -76,6 +76,7 @@ program
       .description('Returns a table of low covered project files')
       .option('-t, --target [value]', 'Desired coverage target of an each file', env.target)
       .option('-l --limit [value]', 'Files limit', '5')
+      .option('-a --all', 'Takes all paths provided by pattern', false)
       .action(async (pattern: string | undefined, options: IUnitGeneratorCliOptions['analyze'], command: Command) => {
         const cwd = process.cwd();
 
@@ -87,6 +88,7 @@ program
           limit: Number(options.limit),
 
           paths: command.args,
+          all: options.all,
         });
 
         console.table(extracted, cast<(keyof IExtractedCoverage)[]>(['file', 'rate']));
@@ -102,6 +104,7 @@ program
       .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', env.iterations)
       .option('-l --limit [value]', 'Files limit', '5')
       .option('-v --verbose', 'Replaces pretty table with a raw Keploy as output', false)
+      .option('-a --all', 'Takes all paths provided by pattern', false)
       .action(async (pattern: string | undefined, options: IUnitGeneratorCliOptions['generate'], command: Command) => {
         const timestamp = Date.now();
 
@@ -118,6 +121,8 @@ program
 
           paths: command.args,
           limit: Number(options.limit),
+
+          all: options.all,
         });
 
         const processed = extracted.map((item): IProcessedCoverage => {
@@ -139,10 +144,7 @@ program
         if (!options.verbose) {
           setInterval(() => actualizeProcessedCoverageRate(cwd, processed), 1500);
           setInterval(() => {
-            terminal
-              .cursorTo(0, cursor.row - 1)
-              .clearScreenDown()
-              .commit();
+            terminal.cursorTo(0, cursor.row - 1).clearScreenDown().commit();
             renderProcessedCoverage(timestamp, processed);
           }, 100);
         }

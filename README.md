@@ -147,9 +147,10 @@ Usage: cli analyze [options] [pattern]
 Returns a table of low covered project files
 
 Options:
-  -t, --target [value]      Desired coverage target of an each file (default: "0.8")
-  -l --limit [value]  Files limit (default: "5")
-  -h, --help          display help for command
+  -t, --target [value]  Desired coverage target of an each file (default: "0.8")
+  -l --limit [value]    Files limit (default: "5")
+  -a --all              Takes all paths provided by pattern (default: false)
+  -h, --help            display help for command
 ```
 
 **Examples**

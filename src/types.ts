@@ -31,6 +31,8 @@ export interface IUnitGeneratorCliOptions {
   analyze: {
     target: string;
     limit: string;
+
+    all: boolean;
   };
 
   generate: {
@@ -38,6 +40,7 @@ export interface IUnitGeneratorCliOptions {
     limit: string;
 
     model: string;
+    all: boolean;
 
     iterations: string;
     verbose: boolean;

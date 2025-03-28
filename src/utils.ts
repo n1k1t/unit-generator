@@ -28,6 +28,7 @@ export const extractFilesCoverage = async (
   cobertura: string,
   options?: {
     silent?: boolean;
+    all?: boolean;
 
     target?: number;
     limit?: number;
@@ -58,25 +59,31 @@ export const extractFilesCoverage = async (
   const parsed = _.flatten([coverage.coverage.packages.package]).reduce<IExtractedCoverage[]>(
     (acc, item) =>
       acc.concat(
-        (Array.isArray(item.classes.class) ? item.classes.class : [item.classes.class])
-          .filter((nested) => Number(nested['@_line-rate']) < target)
-          .map((nested) => ({
-            id: genUid(),
-            file: nested['@_filename'],
-            rate: Number(Number(nested['@_line-rate']).toFixed(3)),
-          }))
+        (Array.isArray(item.classes.class) ? item.classes.class : [item.classes.class]).map((nested) => ({
+          id: genUid(),
+          file: nested['@_filename'],
+          rate: Number(Number(nested['@_line-rate']).toFixed(3)),
+        }))
       ),
     []
   );
 
-  options?.paths?.forEach((nested) =>
-    parsed.some(({ file }) => file.includes(nested))
-      ? null
-      : parsed.push({ id: genUid(), file: nested, rate: 0 })
-  );
+  if (options?.all) {
+    options.paths?.forEach((nested) =>
+      parsed.some(({ file }) => file.includes(nested))
+        ? null
+        : parsed.push({ id: genUid(), file: nested, rate: 0 })
+    );
+  }
 
   return parsed
-    .filter(({ file }) => {
+    .filter(({ file, rate }) => {
+      if (rate > target) {
+        return false;
+      }
+      if (path.parse(file).name.endsWith('.spec')) {
+        return false;
+      }
       if (options?.paths?.length && !options.paths.some((nested) => file.includes(nested))) {
         return false;
       }
@@ -113,6 +120,7 @@ export const actualizeProcessedCoverageRate = async (cwd: string, processed: IPr
 
 export const extractIgnorePaths = async (cwd: string): Promise<string[]> => {
   const raw = await fs.readFile(path.join(cwd, '.unitignore'), 'utf8').catch(() => null);
+
   return (
     raw
       ?.split('\n')
