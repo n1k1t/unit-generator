@@ -1,6 +1,6 @@
 {
   "name": "@n1k1t/unit-generator",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Coverage based unit tests AI generator",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
