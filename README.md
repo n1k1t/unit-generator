@@ -147,7 +147,7 @@ Usage: cli analyze [options] [pattern]
 Returns a table of low covered project files
 
 Options:
-  -r, --rate [value]  Maximal actual coverage rate of an each file (default: "0.8")
+  -t, --target [value]      Desired coverage target of an each file (default: "0.8")
   -l --limit [value]  Files limit (default: "5")
   -h, --help          display help for command
 ```
@@ -176,7 +176,6 @@ Usage: cli generate [options] [pattern]
 Generates unit tests
 
 Options:
-  -r, --rate [value]        Maximal actual coverage rate of an each file (default: "0.8")
   -t, --target [value]      Desired coverage target of an each file (default: "0.8")
   -m, --model [value]       AI model to use for unit tests generation (default: "gpt-4o-mini")
   -i, --iterations [value]  Iterations maximum of unit tests generation (default: "5")

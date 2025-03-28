@@ -28,13 +28,15 @@ export const extractFilesCoverage = async (
   cobertura: string,
   options?: {
     silent?: boolean;
+
+    target?: number;
+    limit?: number;
+
     ignore?: string[];
     paths?: string[];
-    limit?: number;
-    rate?: number;
   }
 ): Promise<IExtractedCoverage[]> => {
-  const rate = options?.rate ?? 0.8;
+  const target = options?.target ?? 1;
   const raw = await fs.readFile(cobertura).catch((error) => {
     if (options?.silent) {
       return null;
@@ -53,20 +55,27 @@ export const extractFilesCoverage = async (
     return [];
   }
 
-  return _.flatten([coverage.coverage.packages.package])
-    .reduce<IExtractedCoverage[]>(
-      (acc, item) =>
-        acc.concat(
-          (Array.isArray(item.classes.class) ? item.classes.class : [item.classes.class])
-            .filter((nested) => Number(nested['@_line-rate']) < rate)
-            .map((nested) => ({
-              id: genUid(),
-              file: nested['@_filename'],
-              rate: Number(Number(nested['@_line-rate']).toFixed(3)),
-            }))
-        ),
-      []
-    )
+  const parsed = _.flatten([coverage.coverage.packages.package]).reduce<IExtractedCoverage[]>(
+    (acc, item) =>
+      acc.concat(
+        (Array.isArray(item.classes.class) ? item.classes.class : [item.classes.class])
+          .filter((nested) => Number(nested['@_line-rate']) < target)
+          .map((nested) => ({
+            id: genUid(),
+            file: nested['@_filename'],
+            rate: Number(Number(nested['@_line-rate']).toFixed(3)),
+          }))
+      ),
+    []
+  );
+
+  options?.paths?.forEach((nested) =>
+    parsed.some(({ file }) => file.includes(nested))
+      ? null
+      : parsed.push({ id: genUid(), file: nested, rate: 0 })
+  );
+
+  return parsed
     .filter(({ file }) => {
       if (options?.paths?.length && !options.paths.some((nested) => file.includes(nested))) {
         return false;
@@ -95,7 +104,7 @@ export const renderProcessedCoverage = (timestamp: number, processed: IProcessed
 export const actualizeProcessedCoverageRate = async (cwd: string, processed: IProcessedCoverage[]) => {
   for (const item of processed) {
     const [refreshed] = await extractFilesCoverage(path.join(cwd, item.cobertura), {
-      rate: Infinity,
+      target: Infinity,
       silent: true,
     });
     item.rate = refreshed?.rate ?? item.rate;

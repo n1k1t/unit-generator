@@ -74,7 +74,7 @@ program
     new Command()
       .command('analyze [pattern]')
       .description('Returns a table of low covered project files')
-      .option('-r, --rate [value]', 'Maximal actual coverage rate of an each file', '0.8')
+      .option('-t, --target [value]', 'Desired coverage target of an each file', env.target)
       .option('-l --limit [value]', 'Files limit', '5')
       .action(async (pattern: string | undefined, options: IUnitGeneratorCliOptions['analyze'], command: Command) => {
         const cwd = process.cwd();
@@ -83,9 +83,10 @@ program
         const extracted = await extractFilesCoverage(path.join(cwd, env.cobertura), {
           ignore,
 
-          paths: command.args,
+          target: Number(options.target),
           limit: Number(options.limit),
-          rate: Number(options.rate),
+
+          paths: command.args,
         });
 
         console.table(extracted, cast<(keyof IExtractedCoverage)[]>(['file', 'rate']));
@@ -96,7 +97,6 @@ program
     new Command()
       .command('generate [pattern]')
       .description('Generates unit tests')
-      .option('-r, --rate [value]', 'Maximal actual coverage rate of an each file', '0.8')
       .option('-t, --target [value]', 'Desired coverage target of an each file', env.target)
       .option('-m, --model [value]', 'AI model to use for unit tests generation', env.model)
       .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', env.iterations)
@@ -104,6 +104,8 @@ program
       .option('-v --verbose', 'Replaces pretty table with a raw Keploy as output', false)
       .action(async (pattern: string | undefined, options: IUnitGeneratorCliOptions['generate'], command: Command) => {
         const timestamp = Date.now();
+
+        const target = Number(options.target);
         const cwd = process.cwd();
 
         const terminal = new Readline(process.stdout);
@@ -112,9 +114,9 @@ program
         const ignore = await extractIgnorePaths(cwd);
         const extracted = await extractFilesCoverage(path.join(cwd, env.cobertura), {
           ignore,
+          target,
 
           paths: command.args,
-          rate: Number(options.rate),
           limit: Number(options.limit),
         });
 
@@ -123,14 +125,13 @@ program
           const temp = path.join(path.relative(cwd, __dirname), 'generated', item.id);
 
           return Object.assign(item, {
+            target,
             temp,
 
             spec: path.join(parsed.dir, `${parsed.name}.spec${parsed.ext}`),
             cobertura: path.join(temp, 'cobertura-coverage.xml'),
 
             status: cast<'DONE' | 'ERROR' | 'PENDING'>('PENDING'),
-            target: Number(options.target),
-
             spent: 0,
           });
         });

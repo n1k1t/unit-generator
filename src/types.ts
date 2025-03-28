@@ -29,16 +29,15 @@ export interface IUnitGeneratorCliOptions {
   };
 
   analyze: {
+    target: string;
     limit: string;
-    rate: string;
   };
 
   generate: {
-    limit: string;
-    model: string;
-
     target: string;
-    rate: string;
+    limit: string;
+
+    model: string;
 
     iterations: string;
     verbose: boolean;
