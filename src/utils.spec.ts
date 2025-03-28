@@ -132,3 +132,21 @@ it('should read and return paths from .unitignore file', async () => {
   expect(result).toEqual(['path1/', 'path2/']);
 });
 
+// Test generated using Keploy
+it('should include files matching paths but not meeting line-rate', async () => {
+  const content = `
+  <coverage>
+    <packages>
+      <package>
+        <classes>
+          <class filename="file1.js" line-rate="0.3" />
+        </classes>
+      </package>
+    </packages>
+  </coverage>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
+  const options = { paths: ['file1.js'], target: 0.7 };
+
+  const result = await extractFilesCoverage('valid/path/to/cobertura.xml', options);
+  expect(result).toEqual([{ id: expect.any(String), file: 'file1.js', rate: 0.3 }]);
+});
