@@ -110,7 +110,7 @@ export const extractFilesCoverage = async (
   ].slice(0, options?.limit ?? Infinity);
 };
 
-export const renderProcessedCoverage = (timestamp: number, processed: IProcessedCoverage[]) => {
+export const renderProcessedCoverage = (timestamp: number, processed: IProcessedCoverage[]) =>
   console.table(
     processed.map((item) =>
       Object.assign(item, {
@@ -119,14 +119,16 @@ export const renderProcessedCoverage = (timestamp: number, processed: IProcessed
     ),
     cast<(keyof IProcessedCoverage)[]>(['file', 'rate', 'target', 'status', 'spent'])
   );
-};
 
-export const actualizeProcessedCoverageRate = async (cwd: string, processed: IProcessedCoverage[]) => {
-  for (const item of processed) {
+export const actualizeProcessedCoverageRate = async (cwd: string, processed: IProcessedCoverage[], options?: {
+  force?: boolean;
+}) => {
+  for (const item of (options?.force ? processed.filter((item) => item.status === 'PENDING') : processed)) {
     const [refreshed] = await extractFilesCoverage(path.join(cwd, item.cobertura), {
       target: Infinity,
       silent: true,
     });
+
     item.rate = refreshed?.rate ?? item.rate;
   }
 };

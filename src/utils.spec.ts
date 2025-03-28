@@ -5,6 +5,7 @@ import { renderProcessedCoverage, extractOverallCoverage, extractFilesCoverage }
 import { actualizeProcessedCoverageRate } from './utils';
 import { extractIgnorePaths } from './utils';
 import { cast } from './utils';
+import { wait } from './utils';
 
 it('should cast value', () => expect(cast('test')).toEqual('test'));
 
@@ -149,4 +150,57 @@ it('should include files matching paths but not meeting line-rate', async () => 
 
   const result = await extractFilesCoverage('valid/path/to/cobertura.xml', options);
   expect(result).toEqual([{ id: expect.any(String), file: 'file1.js', rate: 0.3 }]);
+});
+
+// Test generated using Keploy
+it('should resolve after the specified time', async () => {
+  const start = Date.now();
+  const waitPromise = wait(100);
+  await waitPromise;
+  const duration = Date.now() - start;
+  expect(duration).toBeGreaterThanOrEqual(100);
+});
+
+// Test generated using Keploy
+it('should correctly sort files by rate, separating modules and index files', async () => {
+  const coverageContent = `
+  <coverage>
+    <packages>
+      <package>
+        <classes>
+          <class filename="module1.js" line-rate="0.4" />
+          <class filename="index.js" line-rate="0.2" />
+          <class filename="module2.js" line-rate="0.3" />
+        </classes>
+      </package>
+    </packages>
+  </coverage>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(coverageContent);
+
+  const result = await extractFilesCoverage('valid/path/to/cobertura.xml');
+  expect(result).toEqual([
+    { id: expect.any(String), file: 'module2.js', rate: 0.3 },
+    { id: expect.any(String), file: 'module1.js', rate: 0.4 },
+    { id: expect.any(String), file: 'index.js', rate: 0.2 }
+  ]);
+});
+
+// Test generated using Keploy
+it('should include index files with low coverage when options.paths is specified', async () => {
+  const content = `
+  <coverage>
+    <packages>
+      <package>
+        <classes>
+          <class filename="index.js" line-rate="0.1" />
+          <class filename="module.js" line-rate="0.5" />
+        </classes>
+      </package>
+    </packages>
+  </coverage>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
+  const options = { paths: ['index.js'], target: 0.3 };
+
+  const result = await extractFilesCoverage('valid/path/to/cobertura.xml', options);
+  expect(result).toEqual([{ id: expect.any(String), file: 'index.js', rate: 0.1 }]);
 });
