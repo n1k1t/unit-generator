@@ -76,25 +76,38 @@ export const extractFilesCoverage = async (
     );
   }
 
-  return parsed
-    .filter(({ file, rate }) => {
-      if (rate > target) {
-        return false;
-      }
-      if (path.parse(file).name.endsWith('.spec')) {
-        return false;
-      }
-      if (options?.paths?.length && !options.paths.some((nested) => file.includes(nested))) {
-        return false;
-      }
-      if (options?.ignore?.length && options.ignore.some((pattern) => minimatch(file, pattern))) {
-        return false;
-      }
+  const filtred = parsed.filter(({ file, rate }) => {
+    if (rate > target) {
+      return false;
+    }
+    if (path.parse(file).name.endsWith('.spec')) {
+      return false;
+    }
+    if (options?.paths?.length && !options.paths.some((nested) => file.includes(nested))) {
+      return false;
+    }
+    if (options?.ignore?.length && options.ignore.some((pattern) => minimatch(file, pattern))) {
+      return false;
+    }
 
-      return true;
-    })
-    .sort((a, b) => (a.file.includes('index') ? 1 : a.rate - b.rate))
-    .slice(0, options?.limit ?? Infinity);
+    return true;
+  });
+
+  const separated = filtred.reduce<{
+    modules: IExtractedCoverage[];
+    indexes: IExtractedCoverage[];
+  }>((acc, coverage) => {
+    path.parse(coverage.file).name === 'index'
+      ? acc.indexes.push(coverage)
+      : acc.modules.push(coverage);
+
+    return acc;
+  }, { indexes: [], modules: [] });
+
+  return [
+    ...separated.modules.sort((a, b) => a.rate - b.rate),
+    ...separated.indexes.sort((a, b) => a.rate - b.rate),
+  ].slice(0, options?.limit ?? Infinity);
 };
 
 export const renderProcessedCoverage = (timestamp: number, processed: IProcessedCoverage[]) => {
