@@ -77,7 +77,7 @@ export const extractFilesCoverage = async (
   }
 
   const filtred = parsed.filter(({ file, rate }) => {
-    if (rate > target) {
+    if (rate >= target) {
       return false;
     }
     if (path.parse(file).name.endsWith('.spec')) {
