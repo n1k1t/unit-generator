@@ -1,6 +1,7 @@
 import generate from './generate';
 import fs from 'fs/promises';
 
+
 jest.spyOn(fs, 'writeFile').mockImplementation(() => Promise.resolve());
 
 // Test generated using Keploy
@@ -79,4 +80,20 @@ test('generate handles missing coverage files correctly', async () => {
     .mockImplementationOnce(() => <any>Promise.resolve());
 
   await expect(generate(parameters)).resolves.not.toThrow();
+});
+
+// Test generated using Keploy
+test('generate verbose mode writes output to stdout', async () => {
+  const mockCoverage = [{ file: 'file1.js', id: '1' }];
+  const mockedExtractFilesCoverage = require('../utils').extractFilesCoverage;
+  mockedExtractFilesCoverage.mockResolvedValueOnce(mockCoverage);
+
+  const parameters = { iterations: 1, target: 0.5, paths: ['src'], verbose: true };
+
+  const mockWrite = jest.spyOn(process.stdout, 'write').mockImplementation(<any>(() => {}));
+
+  await generate(parameters);
+
+  expect(mockWrite).toHaveBeenCalled();
+  mockWrite.mockRestore();
 });

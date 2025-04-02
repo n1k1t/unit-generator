@@ -12,12 +12,12 @@ export interface IJestCoveragePackage {
 }
 
 export interface IJestCoverage {
-  coverage: {
+  coverage?: {
     '@_timestamp': string;
     '@_line-rate': string;
     '@_branch-rate': string;
 
-    packages: {
+    packages?: {
       package?: IJestCoveragePackage[];
     };
   };

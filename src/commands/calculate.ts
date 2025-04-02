@@ -12,5 +12,9 @@ export default async () => {
   );
 
   const extracted = await extractOverallCoverage(path.join(process.cwd(), env.cobertura));
+  if (!extracted) {
+    throw new Error('Invalid codertura');
+  }
+
   console.table([{ rate: extracted.rate, updated: extracted.timestamp.toLocaleString() }]);
 }

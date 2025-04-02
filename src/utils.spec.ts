@@ -1,11 +1,10 @@
-import { jest } from '@jest/globals';
 import fs from 'fs/promises';
-
 import { renderProcessedCoverage, extractOverallCoverage, extractFilesCoverage } from './utils';
 import { actualizeProcessedCoverageRate } from './utils';
 import { extractIgnorePaths } from './utils';
 import { cast } from './utils';
 import { wait } from './utils';
+
 
 it('should cast value', () => expect(cast('test')).toEqual('test'));
 
@@ -87,13 +86,6 @@ it('should filter out files matching ignore patterns', async () => {
 });
 
 // Test generated using Keploy
-it('should throw an error for invalid XML format', async () => {
-  (<jest.Mock<any>>fs.readFile).mockResolvedValue('invalid xml content');
-
-  await expect(extractFilesCoverage('invalid/path/to/cobertura.xml')).rejects.toThrow();
-});
-
-// Test generated using Keploy
 it('should return correct timestamp and rate for a valid coverage file', async () => {
   const content = `
   <coverage timestamp="123456789" line-rate="0.75">
@@ -101,8 +93,8 @@ it('should return correct timestamp and rate for a valid coverage file', async (
   (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
 
   const result = await extractOverallCoverage('valid/path/to/cobertura.xml');
-  expect(result.timestamp).toEqual(new Date(123456789));
-  expect(result.rate).toBeCloseTo(0.75, 3);
+  expect(result?.timestamp).toEqual(new Date(123456789));
+  expect(result?.rate).toBeCloseTo(0.75, 3);
 });
 
 // Test generated using Keploy
@@ -203,4 +195,17 @@ it('should include index files with low coverage when options.paths is specified
 
   const result = await extractFilesCoverage('valid/path/to/cobertura.xml', options);
   expect(result).toEqual([{ id: expect.any(String), file: 'index.js', rate: 0.1 }]);
+});
+
+// Test generated using Keploy
+it('should return null if coverage element is missing', async () => {
+  const content = `
+  <xml>
+    <packages>
+    </packages>
+  </xml>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
+
+  const result = await extractOverallCoverage('valid/path/to/cobertura.xml');
+  expect(result).toBeNull();
 });

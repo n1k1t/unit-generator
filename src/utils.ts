@@ -10,13 +10,16 @@ import { IJestCoverage, IExtractedCoverage, IProcessedCoverage } from './types';
 
 const xmlParser = new XMLParser({ ignoreAttributes: false });
 
-export const extractOverallCoverage = async (cobertura: string): Promise<{ timestamp: Date; rate: number }> => {
+export const extractOverallCoverage = async (cobertura: string): Promise<{ timestamp: Date; rate: number } | null> => {
   const raw = await fs.readFile(cobertura).catch((error) => {
     console.error('Cannot find cobertura file', error?.stack ?? error);
     throw error;
   });
 
   const coverage: IJestCoverage = xmlParser.parse(raw);
+  if (!coverage.coverage) {
+    return null;
+  }
 
   return {
     timestamp: new Date(Number(coverage.coverage['@_timestamp'])),
@@ -52,7 +55,7 @@ export const extractFilesCoverage = async (
   }
 
   const coverage: IJestCoverage = xmlParser.parse(raw);
-  if (!coverage.coverage.packages.package) {
+  if (!coverage.coverage?.packages?.package) {
     return [];
   }
 
