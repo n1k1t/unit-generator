@@ -61,7 +61,7 @@ $ npx unit calculate
 │ 0       │ 0.689 │ '20.03.2025, 19:48:31' │
 └─────────┴───────┴────────────────────────┘
 ```
-8. Done! Now (command "generate")[#command-generate] should work fine
+8. Done! Now try to use [**generate** command](#command-generate)
 
 ## API
 
