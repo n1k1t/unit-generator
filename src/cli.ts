@@ -7,7 +7,7 @@ import * as commands from './commands';
 
 import env from './env';
 
-if (!env.token) {
+if (!env.key) {
   console.error('Cannot define [env.UNIT_GENERATOR_API_KEY]');
   process.exit(1);
 }

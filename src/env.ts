@@ -3,7 +3,9 @@ import dotenv from 'dotenv';
 const config = dotenv.config();
 
 export default {
-  token: config.parsed?.UNIT_GENERATOR_API_KEY,
+  key: config.parsed?.UNIT_GENERATOR_API_KEY,
+  url: config.parsed?.UNIT_GENERATOR_API_URL,
+
   model: config.parsed?.UNIT_GENERATOR_MODEL ?? 'gpt-4o-mini',
 
   command: config.parsed?.UNIT_GENERATOR_TEST_COMMAND ?? 'npm test',

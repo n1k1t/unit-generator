@@ -209,3 +209,30 @@ it('should return null if coverage element is missing', async () => {
   const result = await extractOverallCoverage('valid/path/to/cobertura.xml');
   expect(result).toBeNull();
 });
+
+// Test generated using Keploy
+it('should filter out files matching ignore patterns', async () => {
+  const content = `
+  <coverage>
+    <packages>
+      <package>
+        <classes>
+          <class filename="file1.js" line-rate="0.3" />
+          <class filename="file2.js" line-rate="0.5" />
+          <class filename="ignored_file.js" line-rate="0.4" />
+        </classes>
+      </package>
+    </packages>
+  </coverage>`;
+  (<jest.Mock<any>>fs.readFile).mockResolvedValue(content);
+  const options = {
+    ignore: ['ignored_file.js'],
+  };
+
+  const result = await extractFilesCoverage('valid/path/to/cobertura.xml', options);
+  expect(result).toEqual([
+    { id: expect.any(String), file: 'file1.js', rate: 0.3 },
+    { id: expect.any(String), file: 'file2.js', rate: 0.5 },
+  ]);
+});
+

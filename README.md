@@ -30,8 +30,13 @@ In general, it uses an AI model to generate a unit test that should reach a high
 3. Allow access to model **gpt-o4-mini**
 4. Make `.env` file in the root of project that contents:
 ```bash
+# AI platform key (required)
+UNIT_GENERATOR_API_KEY="API_KEY"
+# AI platform/LiteLLM base url (optional)
+UNIT_GENERATOR_API_URL="BASE_URL_TO_AI_PLATFORM"
+# Command that will be used to generate unit tests (optional)
 UNIT_GENERATOR_TEST_COMMAND="npx jest"
-UNIT_GENERATOR_API_KEY="...API_KEY"
+# AI model to use for unit tests generation (optional)
 UNIT_GENERATOR_MODEL="gpt-4o-mini"
 ```
 5. Setup project with [Jest](https://www.npmjs.com/package/jest)
@@ -56,7 +61,7 @@ $ npx unit calculate
 │ 0       │ 0.689 │ '20.03.2025, 19:48:31' │
 └─────────┴───────┴────────────────────────┘
 ```
-8. Done!
+8. Done! Now (command "generate")[#command-generate] should work fine
 
 ## API
 
@@ -80,7 +85,7 @@ Commands:
   help [command]                display help for command
 ```
 
-###  Command `summary`
+### Command `summary`
 
 ```bash
 $ npx unit summary -h
@@ -112,7 +117,7 @@ $ npx unit summary -f number
 0.689
 ```
 
-###  Command `calculate`
+### Command `calculate`
 
 ```bash
 $ npx unit calculate -h
@@ -137,7 +142,7 @@ $ npx unit calculate
 └─────────┴───────┴────────────────────────┘
 ```
 
-###  Command `analyze`
+### Command `analyze`
 
 ```bash
 $ npx unit analyze -h
@@ -167,7 +172,7 @@ $ npx unit analyze -l 3 src/utils
 └─────────┴────────────────────────────────────────────────────────┴───────┘
 ```
 
-###  Command `generate`
+### Command `generate`
 
 ```bash
 $ npx unit generate -h
@@ -215,6 +220,8 @@ export UNIT_GENERATOR_MAX_ITERATIONS="5"
 export UNIT_GENERATOR_TEST_COMMAND="npm test"
 # AI platform key
 export UNIT_GENERATOR_API_KEY="..."
+# AI platform base url (works with LiteLLM)
+export UNIT_GENERATOR_API_URL="..."
 # AI model to use for unit tests generation
 export UNIT_GENERATOR_MODEL="gpt-4o-mini"
 ```

@@ -99,10 +99,11 @@ export default async (parameters: IParameters = {}) => {
           `--source-file-path="${item.file}"`,
           `--expected-coverage="${item.target * 100}"`,
           `--coverage-report-path="${item.cobertura}"`,
+          env.url ? `--llmBaseUrl="${env.url}"` : '',
         ],
         {
           shell: true,
-          env: Object.assign(process.env, { API_KEY: env.token }),
+          env: Object.assign(process.env, { API_KEY: env.key }),
         }
       );
 
