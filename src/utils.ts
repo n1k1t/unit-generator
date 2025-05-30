@@ -55,11 +55,7 @@ export const extractFilesCoverage = async (
   }
 
   const coverage: IJestCoverage = xmlParser.parse(raw);
-  if (!coverage.coverage?.packages?.package) {
-    return [];
-  }
-
-  const parsed = _.flatten([coverage.coverage.packages.package]).reduce<IExtractedCoverage[]>(
+  const parsed = _.flatten([coverage.coverage?.packages?.package ?? []]).reduce<IExtractedCoverage[]>(
     (acc, item) =>
       acc.concat(
         (Array.isArray(item.classes.class) ? item.classes.class : [item.classes.class]).map((nested) => ({
