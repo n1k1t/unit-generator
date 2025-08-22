@@ -5,17 +5,15 @@
 .env
 
 discardedTests.txt
-keploy-logs.txt
 tsconfig.json
-keploy.yml
 
 .vscode/
 .husky/
 
-coverage/
-images/
-types/
-src/
+/coverage/
+/images/
+/types/
+/src/
 
 /**/*.tsbuildinfo
 /lib/**/*.spec.*

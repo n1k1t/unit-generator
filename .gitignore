@@ -12,15 +12,13 @@
 .vscode/
 
 discardedTests.txt
-keploy-logs.txt
 npm-debug.log
-keploy.yml
 
-node_modules/
-lib/
+/node_modules/
+/lib/
 
-src/generated/**
-coverage/**
+/src/generated/**
+!/src/generated/.keep.ts
 
-!src/generated/.keep.ts
-!coverage/cobertura-coverage.xml
+/coverage/**
+!/coverage/cobertura-coverage.xml

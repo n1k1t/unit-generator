@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import path from 'path';
 
-import { extractOverallCoverage } from '../utils';
+import { Cobertura } from '../models';
 import env from '../env';
 
 export default async () => {
@@ -11,10 +11,6 @@ export default async () => {
     )
   );
 
-  const extracted = await extractOverallCoverage(path.join(process.cwd(), env.cobertura));
-  if (!extracted) {
-    throw new Error('Invalid codertura');
-  }
-
-  console.table([{ rate: extracted.rate, updated: extracted.timestamp.toLocaleString() }]);
+  const cobertura = await Cobertura.build(path.join(process.cwd(), env.cobertura));
+  console.table([{ rate: cobertura.rate, updated: new Date(cobertura.timestamp).toLocaleString() }]);
 }

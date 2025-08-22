@@ -31,7 +31,7 @@ program
     new Command()
       .command('analyze [pattern]')
       .description('Returns a table of low covered project files')
-      .option('-t, --target [value]', 'Desired coverage target of an each file', env.target)
+      .option('-t, --target [value]', 'Desired coverage target of an each file', String(env.target))
       .option('-l --limit [value]', 'Files limit', '5')
       .option('-a --all', 'Takes all paths provided by pattern', false)
       .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['analyze'], command: Command) =>
@@ -48,11 +48,10 @@ program
     new Command()
       .command('generate [pattern]')
       .description('Generates unit tests')
-      .option('-t, --target [value]', 'Desired coverage target of an each file', env.target)
+      .option('-t, --target [value]', 'Desired coverage target of an each file', String(env.target))
       .option('-m, --model [value]', 'AI model to use for unit tests generation', env.model)
-      .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', env.iterations)
+      .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', String(env.iterations))
       .option('-l --limit [value]', 'Files limit', '5')
-      .option('-v --verbose', 'Replaces pretty table with a raw Keploy as output', false)
       .option('-a --all', 'Takes all paths provided by pattern', false)
       .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['generate'], command: Command) =>
         commands.generate({
@@ -63,7 +62,6 @@ program
           model: options.model,
           paths: command.args,
 
-          verbose: options.verbose,
           all: options.all,
         })
       )

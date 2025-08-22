@@ -1,7 +1,9 @@
 import path from 'path';
 
-import { extractFilesCoverage, cast, extractIgnorePaths } from '../utils';
-import { IUnitGeneratorCliOptions, IExtractedCoverage } from '../types';
+import { extractCoberturaItems, extractIgnoredPaths } from './utils';
+import { IUnitGeneratorCliOptions } from '../types';
+import { CoberturaItem } from '../models';
+import { cast } from '../utils';
 
 import env from '../env';
 
@@ -15,9 +17,10 @@ interface IParameters extends Partial<Pick<IUnitGeneratorCliOptions['analyze'], 
 export default async (parameters: IParameters = {}) => {
   const cwd = process.cwd();
 
-  const ignore = await extractIgnorePaths(cwd);
-  const extracted = await extractFilesCoverage(path.join(cwd, env.cobertura), {
+  const ignore = await extractIgnoredPaths(cwd);
+  const extracted = await extractCoberturaItems(path.join(cwd, env.cobertura), {
     ignore,
+    cwd,
 
     target: parameters.target ?? Number(env.target),
     limit: parameters.limit,
@@ -26,5 +29,5 @@ export default async (parameters: IParameters = {}) => {
     all: parameters.all,
   });
 
-  console.table(extracted, cast<(keyof IExtractedCoverage)[]>(['file', 'rate']));
+  console.table(extracted, cast<(keyof CoberturaItem)[]>(['path', 'rate']));
 }
