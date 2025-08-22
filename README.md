@@ -20,7 +20,7 @@ npm i -D @n1k1t/unit-generator
 
 ## How it works?
 
-It automatically prompts with AI models to generate new (or fix falling) unit tests. For more effience it uses actual cobertura coverage
+It automatically prompts with AI models to generate new (or fix falling) unit tests. For more efficiency it uses actual cobertura coverage
 
 ## First steps
 
