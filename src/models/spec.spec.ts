@@ -24,7 +24,7 @@ it('extractImportNodes returns empty array on parse error', () => {
   const spec = Object.create(Spec.prototype) as Spec;
   spec.content = 'invalid {';
   spec.lang = 'js';
-  const nodes = (spec as any).extractImportNodes();
+  const nodes = (spec as any).extractAstNodes();
   expect(nodes).toEqual([]);
 })
 

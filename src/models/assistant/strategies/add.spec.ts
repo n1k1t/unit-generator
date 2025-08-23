@@ -117,7 +117,7 @@ it('run returns EMPTY when generated.specs is empty', async () => {
     test: jest.fn().mockResolvedValue({ status: 'PASSED' }),
     compileSnapshot: jest.fn().mockReturnValue('snap'),
   };
-  strategy.parameters = { temperature: 0.5, seed: 123 };
+  strategy.differation = { temperature: 0.5, seed: 123, attempt: 1 };
   strategy.generate = jest.fn().mockResolvedValue({ imports: [], specs: [] });
   const result = await (AssistantAddStrategy as any).prototype.run.call(strategy);
   expect(result).toEqual('EMPTY');
@@ -132,7 +132,7 @@ it('run returns FAILED when injectImports returns FAILED', async () => {
     compileSnapshot: jest.fn().mockReturnValue('snap'),
   };
   strategy.generate = jest.fn().mockResolvedValue({ imports: [], specs: [{ code: "it('a', () => {})" }] });
-  strategy.parameters = { temperature: 0.5, seed: 123 };
+  strategy.differation = { temperature: 0.5, seed: 123, attempt: 1 };
   strategy.injectImports = jest.fn().mockResolvedValue('FAILED');
   const result = await (AssistantAddStrategy as any).prototype.run.call(strategy);
   expect(result).toEqual('FAILED');
@@ -148,7 +148,7 @@ it('run restores snapshot when injectSpecs returns not DONE', async () => {
     compileSnapshot: jest.fn().mockReturnValue('snap'),
     restore,
   };
-  strategy.parameters = { temperature: 0.5, seed: 123 };
+  strategy.differation = { temperature: 0.5, seed: 123, attempt: 1 };
   strategy.generate = jest.fn().mockResolvedValue({ imports: [], specs: [{ code: "it('a', () => {})" }] });
   strategy.injectImports = jest.fn().mockResolvedValue('DONE');
   strategy.injectSpecs = jest.fn().mockResolvedValue('FAILED');

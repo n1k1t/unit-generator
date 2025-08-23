@@ -9,7 +9,8 @@ import { AssistantSource } from '../source';
 export abstract class AssistantStrategy<K extends string & {} = string & {}> {
   public abstract model: LanguageModel;
 
-  public parameters = {
+  public differation = {
+    attempt: 1,
     temperature: 0,
     seed: Date.now(),
   };
@@ -74,8 +75,9 @@ export abstract class AssistantStrategy<K extends string & {} = string & {}> {
 
   /** Differs model parameters */
   public differ(): this {
-    this.parameters.temperature += this.parameters.temperature === 1 ? 0 : 0.1;
-    this.parameters.seed = Date.now();
+    this.differation.temperature += this.differation.temperature === 1 ? 0 : 0.1;
+    this.differation.seed = Date.now();
+    this.differation.attempt += 1;
 
     return this;
   }

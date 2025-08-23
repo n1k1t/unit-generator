@@ -110,19 +110,32 @@ export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
   }
 
   private async generate(): Promise<AssistantAddStrategy['schema']['_type'] | null> {
+    const offset = (this.differation.attempt - 1) * 5;
+    const uncovered = offset >= this.source.cobertura.uncovered.length
+      ? this.source.cobertura.uncovered.slice(0, 5)
+      : this.source.cobertura.uncovered.slice(offset, offset + 5);
+
     const response = await generateObject({
       prompt: json2md(
         cast<DataObject[]>([
           ...this.context.overview,
           ...this.context.project.concat([
             { h2: '7. Line numbers of code not covered by tests, separated by commas' },
-            { p: this.source.cobertura.uncovered.slice(0, 5).join(', ') },
+            { p: uncovered.join(', ') },
 
             { h2: '8. Import declarations already existing in unit tests code' },
             {
               code: {
                 language: this.source.spec.lang,
                 content: this.source.spec.imports.join('\n'),
+              },
+            },
+
+            { h2: '9. Helpers and utils already declared in unit tests code' },
+            {
+              code: {
+                language: this.source.spec.lang,
+                content: this.source.spec.helpers.join('\n'),
               },
             },
           ]),
@@ -142,8 +155,8 @@ export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
         ])
       ),
 
-      temperature: this.parameters.temperature,
-      seed: this.parameters.seed,
+      temperature: this.differation.temperature,
+      seed: this.differation.seed,
 
       schema: this.schema,
       model: this.model,

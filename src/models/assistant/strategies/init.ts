@@ -131,8 +131,8 @@ export class AssistantInitStrategy extends AssistantStrategy<'INIT'> {
         ])
       ),
 
-      temperature: this.parameters.temperature,
-      seed: this.parameters.seed,
+      temperature: this.differation.temperature,
+      seed: this.differation.seed,
 
       schema: this.schema,
       model: this.model,
