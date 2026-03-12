@@ -33,7 +33,7 @@ it('should return spent time if status is COMPLETED', () => {
 it('should return current elapsed time if status is not COMPLETED', () => {
   const assistant = new Assistant({} as any, [], {} as any);
   assistant.timestamp = Date.now() - 5000;
-  assistant.state.status = 'PREPARING';
+  assistant.state.status = 'GENERATION';
 
   const timeSpent = assistant.calculateTimeSpent();
   expect(timeSpent).toBeGreaterThanOrEqual(5000);
@@ -86,7 +86,7 @@ it('should complete the assistant, calculate spent time, set status, and clear',
   const clearSpy = jest.spyOn(assistant, 'clear').mockResolvedValue(undefined);
 
   assistant.timestamp = Date.now() - 1000;
-  assistant.state.status = 'PREPARING';
+  assistant.state.status = 'GENERATION';
 
   await (assistant as any)['complete']();
 

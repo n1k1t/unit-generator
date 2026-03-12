@@ -47,7 +47,14 @@ export default async (parameters: IParameters = {}) => {
   );
 
   intervals.push(setInterval(() => render(assistants), 100));
-  await Promise.all(assistants.map((assistant) => assistant.run()));
+
+  if (env.parallel) {
+    await Promise.all(assistants.map((assistant) => assistant.run()));
+  } else {
+    for (const assistant of assistants) {
+      await assistant.run();
+    }
+  }
 
   intervals.forEach((interval) => interval.unref());
   render(assistants);

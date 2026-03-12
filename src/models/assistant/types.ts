@@ -26,7 +26,7 @@ export interface IAssistantStep {
 
 export interface IAssistantState {
   strategy: IAssistantStep['strategy'] | 'NONE';
-  status: TAssistantStrategyRunStatus | 'PREPARING' | 'COMPLETED';
+  status: TAssistantStrategyRunStatus | 'PREPARING' | 'GENERATION' | 'COMPLETED';
 }
 
 export interface IAssistantEvents {

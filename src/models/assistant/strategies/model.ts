@@ -1,5 +1,5 @@
+import { NoObjectGeneratedError, NoOutputGeneratedError, Tool } from 'ai';
 import { DataObject } from 'json2md';
-import { Tool } from 'ai';
 
 import { TAssistantStrategyRunStatus } from '../types';
 import { IAssistantModelProvider } from '../router';
@@ -14,6 +14,20 @@ export abstract class AssistantStrategy<K extends string & {} = string & {}> {
     grep: grep(this),
     read: read(),
   };
+
+  public handleAiError(error: unknown) {
+    if (error instanceof NoObjectGeneratedError) {
+      return null;
+    }
+    if (error instanceof NoOutputGeneratedError) {
+      return null;
+    }
+    if (error instanceof Error && error.message.includes('NoOutputGeneratedError')) {
+      return null;
+    }
+
+    throw error;
+  }
 
   public compileContext(): Record<'overview' | 'project' | 'tools' | 'history', DataObject[]> {
     return {

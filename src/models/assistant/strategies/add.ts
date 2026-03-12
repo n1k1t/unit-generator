@@ -1,6 +1,6 @@
 import json2md, { DataObject } from 'json2md';
 
-import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, stepCountIs } from 'ai';
+import { generateText, Output, stepCountIs } from 'ai';
 import { z } from 'zod';
 
 import { TAssistantSourceTestResult, TAssistantStrategyRunStatus } from '../types';
@@ -166,16 +166,7 @@ export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
       tools: this.tools,
 
       stopWhen: stepCountIs(30),
-    }).catch((error) => {
-      if (error instanceof NoObjectGeneratedError) {
-        return null;
-      }
-      if (error instanceof NoOutputGeneratedError) {
-        return null;
-      }
-
-      throw error;
-    });
+    }).catch((error) => this.handleAiError(error));
 
     return response?.output ?? null;
   }
