@@ -65,8 +65,9 @@ export class Assistant {
     if (this.source.checkHasReachedCoverage() && this.state.status === 'DONE') {
       return this.complete();
     }
-
-    this.state.status = 'GENERATION';
+    if (this.state.status === 'PREPARING') {
+      this.state.status = 'GENERATION';
+    }
 
     for await (const strategy of this.strategies) {
       if (this.context.strategies?.length && !this.context.strategies.includes(strategy.name)) {
