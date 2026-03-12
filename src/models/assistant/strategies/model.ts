@@ -15,14 +15,11 @@ export abstract class AssistantStrategy<K extends string & {} = string & {}> {
     read: read(),
   };
 
-  public handleAiError(error: unknown) {
+  public handleAiError(error: unknown): null | never {
     if (error instanceof NoObjectGeneratedError) {
       return null;
     }
     if (error instanceof NoOutputGeneratedError) {
-      return null;
-    }
-    if (error instanceof Error && error.message.includes('NoOutputGeneratedError')) {
       return null;
     }
 

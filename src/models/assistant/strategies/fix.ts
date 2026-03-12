@@ -150,7 +150,11 @@ export class AssistantFixStrategy extends AssistantStrategy<'FIX'> {
       stopWhen: stepCountIs(30),
     }).catch((error) => this.handleAiError(error));
 
-    return response?.output ?? null;
+    try {
+      return response?.output ?? null;
+    } catch (error) {
+      return this.handleAiError(error);
+    };
   }
 
   static build(
