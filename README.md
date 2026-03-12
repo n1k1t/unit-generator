@@ -80,6 +80,7 @@ Commands:
   calculate                     Calculates a coverage of the whole project and returns summary
   analyze [options] [pattern]   Returns a table of low covered project files
   generate [options] [pattern]  Generates unit tests
+  fix [options] [pattern]       Fixes falling unit tests
   help [command]                display help for command
 ```
 
@@ -198,6 +199,35 @@ $ npx unit generate src/models/assistant/strategies
 ├─────────┼──────────────────────────────────────────┼──────┼────────┼───────────┼──────────┼─────────────┼─────────┤
 │ 0       │ 'src/models/assistant/strategies/add.ts' │ 0.79 │ 1      │ 5         │ 'ADD'    │ 'COMPLETED' │ 103.012 │
 └─────────┴──────────────────────────────────────────┴──────┴────────┴───────────┴──────────┴─────────────┴─────────┘
+```
+
+### Command `fix`
+
+```bash
+$ npx unit fix -h
+
+Usage: cli fix [options] [pattern]
+
+Fixes falling unit tests
+
+Options:
+  -m, --model [value]       AI model to use for unit tests generation (default: "gemini-flash-latest")
+  -i, --iterations [value]  Iterations maximum of unit tests generation (default: "5")
+  -l --limit [value]        Files limit (default: "5")
+  -a --all                  Takes all paths provided by pattern (default: false)
+  -h, --help                display help for command
+```
+
+**Examples**
+
+```bash
+$ npx unit fix src/utils
+
+┌─────────┬──────────────────────────────┬──────┬────────┬───────────┬──────────┬─────────────┬─────────┐
+│ (index) │ file                         │ rate │ target │ iteration │ strategy │ status      │ spent   │
+├─────────┼──────────────────────────────┼──────┼────────┼───────────┼──────────┼─────────────┼─────────┤
+│ 0       │ 'src/utils/streams/sse.ts'   │ 0.31 │ 1      │ 1         │ 'FIX'    │ 'COMPLETED' │ 15.421  │
+└─────────┴──────────────────────────────┴──────┴────────┴───────────┴──────────┴─────────────┴─────────┘
 ```
 
 ## Additional
