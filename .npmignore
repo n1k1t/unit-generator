@@ -7,8 +7,10 @@
 discardedTests.txt
 tsconfig.json
 
+.opencode/
 .vscode/
 .husky/
+.ai/
 
 /coverage/
 /images/

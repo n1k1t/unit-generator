@@ -8,7 +8,6 @@ import { Assistant } from '../models';
 import env from '../env';
 
 interface IParameters extends Partial<Pick<IUnitGeneratorCliOptions['generate'], 'all' | 'model'>> {
-  target?: number;
   limit?: number;
 
   paths?: string[];
@@ -19,7 +18,7 @@ export default async (parameters: IParameters = {}) => {
   const intervals: NodeJS.Timeout[] = [];
   const render = buildRenderer();
 
-  const target = parameters.target ?? Number(env.target);
+  const target = Infinity;
   const cwd = process.cwd();
 
   const ignore = await extractIgnoredPaths(cwd);
@@ -42,7 +41,7 @@ export default async (parameters: IParameters = {}) => {
       model: parameters.model,
 
       iterations: parameters.iterations,
-      rate: item.rate,
+      strategies: ['FIX'],
     }))
   );
 

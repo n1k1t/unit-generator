@@ -1,9 +1,12 @@
+import cursorPosition from 'get-cursor-position';
 import minimatch from 'minimatch';
 import path from 'path';
 import fs from 'fs/promises';
 import _ from 'lodash';
 
-import { Cobertura, CoberturaItem } from '../models';
+import { Readline } from 'readline/promises';
+
+import { Assistant, Cobertura, CoberturaItem } from '../models';
 
 export const extractCoberturaItems = async (
   location: string,
@@ -73,4 +76,30 @@ export const extractCoberturaItems = async (
 export const extractIgnoredPaths = async (cwd: string): Promise<string[]> => {
   const raw = await fs.readFile(path.join(cwd, '.unitignore'), 'utf8').catch(() => null);
   return raw?.split('\n').map((segment) => segment.trim()).filter(Boolean) ?? [];
+};
+
+export const buildRenderer = () => {
+  const terminal = new Readline(process.stdout);
+  const cursor = cursorPosition.sync();
+
+  return (assistants: Assistant[]) => {
+    terminal.cursorTo(0, cursor.row - 1).clearScreenDown().commit();
+
+    console.log(`model: ${assistants[0]?.context.provider.name}`);
+    console.log('');
+
+    console.table(
+      assistants.map((assistant) => ({
+        file: assistant.source.code.path,
+        rate: assistant.source.cobertura.rate,
+        target: assistant.source.target,
+
+        iteration: assistant.steps.length,
+        strategy: assistant.state.strategy,
+
+        status: assistant.state.status,
+        spent: Number((assistant.calculateTimeSpent() / 1000).toFixed(3)),
+      }))
+    );
+  };
 };

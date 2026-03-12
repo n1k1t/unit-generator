@@ -18,4 +18,12 @@ export interface IUnitGeneratorCliOptions {
     model: string;
     all: boolean;
   };
+
+  fix: {
+    iterations: string;
+    limit: string;
+
+    model: string;
+    all: boolean;
+  };
 }

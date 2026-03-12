@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 
 import path from 'path';
 import fs from 'fs/promises';
+import fg from 'fast-glob';
 
 import { IAssistantSourceSnapshot, TAssistantSourceTestResult } from './types';
 import { Cobertura } from '../cobertura';
@@ -22,13 +23,16 @@ export class AssistantSource {
   public code: File = this.provided.code;
   public spec: Spec = this.provided.spec;
 
+  public ignore: string[] = this.provided.ignore;
+  public tree: string[] = this.provided.tree;
+
+  public target = this.provided?.target ?? env.target;
   public timestamp = Date.now();
   public iteration = 0;
 
-  public target = this.provided?.target ?? env.target;
   private saved: IAssistantSourceSnapshot | null = null;
 
-  constructor(private provided: Pick<AssistantSource, 'id' | 'code' | 'spec' | 'cobertura' | 'temp'> & {
+  constructor(private provided: Pick<AssistantSource, 'id' | 'code' | 'spec' | 'cobertura' | 'temp' | 'tree' | 'ignore'> & {
     target?: number;
   }) {}
 
@@ -61,15 +65,16 @@ export class AssistantSource {
     return this;
   }
 
-  public async test(): Promise<TAssistantSourceTestResult> {
+  public async test(title: string = ''): Promise<TAssistantSourceTestResult> {
     const stdout: string[] = [];
     const spawned = spawn(
       env.command,
       [
         `-- ${this.spec.path}`,
         '--coverage --forceExit',
-        `--coverageDirectory=${this.temp}`,
-        `--collectCoverageFrom=${this.code.path}`,
+        `--testNamePattern="${title}"`,
+        `--coverageDirectory="${this.temp}"`,
+        `--collectCoverageFrom="${this.code.path}"`,
       ],
       { shell: true }
     );
@@ -104,7 +109,16 @@ export class AssistantSource {
     const spec = await Spec.build(path.join(parsed.dir, `${parsed.name}.spec${parsed.ext}`));
 
     const cobertura = await Cobertura.build(path.join(temp, 'cobertura-coverage.xml'));
-    const source = new AssistantSource({ id, temp, code, spec, cobertura, target: options?.target });
+
+    const gitignore = await fs.readFile('.gitignore', 'utf8').catch(() => '');
+    const ignore = gitignore
+      .split('\n')
+      .map((segment) => segment.trim().replace(/^\//, '').replace(/\/$/, '/**'))
+      .filter((segment) => segment.length)
+      .concat(['**/*.spec.{ts,js}']);
+
+    const tree = await fg(['**/*.{ts,js,json}'], { ignore });
+    const source = new AssistantSource({ id, temp, code, spec, cobertura, tree, ignore, target: options?.target });
 
     if (options?.rate !== undefined) {
       cobertura.assign({ rate: options.rate });

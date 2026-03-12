@@ -3,7 +3,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import _ from 'lodash';
 
-import { IAssistantEvents, IAssistantState, IAssistantStep } from './types';
+import { IAssistantEvents, IAssistantState, IAssistantStep, TAssistantStrategyName } from './types';
+import { AssistantRouter, IAssistantModelProvider } from './router';
 import { AssistantSource } from './source';
 import { buildCounter } from '../../utils';
 import { TFunction } from '../../../types';
@@ -14,6 +15,7 @@ import env from '../../env';
 export * from './strategies';
 export * from './source';
 export * from './types';
+export * from './router';
 
 export class Assistant {
   public timestamp: number = Date.now();
@@ -28,15 +30,20 @@ export class Assistant {
   private counter = buildCounter(1);
   private events = new EventEmitter();
 
-  constructor(public source: AssistantSource, public strategies: strategies.AssistantStrategy[], public options?: {
-    model?: string;
-    cwd?: string;
+  constructor(
+    public source: AssistantSource,
+    public strategies: strategies.AssistantStrategy[],
+    public context: {
+      cwd: string;
+      provider: IAssistantModelProvider;
 
-    rate?: number;
-    target?: number;
+      target: number;
+      iterations: number;
 
-    iterations?: number;
-  }) {}
+      /** Restricts to use only provided strategies */
+      strategies?: TAssistantStrategyName[];
+    }
+  ) {}
 
   public calculateTimeSpent(): number {
     return this.state.status === 'COMPLETED' ? this.spent : (Date.now() - this.timestamp);
@@ -50,14 +57,22 @@ export class Assistant {
     }
   }
 
-  public async run(iterations: number = this.options?.iterations ?? env.iterations): Promise<void> {
+  public async run(iterations: number = this.context.iterations): Promise<void> {
+    const skipsCounter = buildCounter();
+
     if (this.source.checkHasReachedCoverage() && this.state.status === 'DONE') {
       return this.complete();
     }
 
     for await (const strategy of this.strategies) {
+      if (this.context.strategies?.length && !this.context.strategies.includes(strategy.name)) {
+        continue;
+      }
+
       const status = await strategy.run();
+
       if (status === 'SKIPPED') {
+        skipsCounter();
         continue;
       }
 
@@ -70,6 +85,10 @@ export class Assistant {
       });
 
       break;
+    }
+
+    if (skipsCounter(0) === this.context.strategies?.length) {
+      return this.complete();
     }
 
     return this.counter() <= iterations
@@ -106,16 +125,22 @@ export class Assistant {
     return this.emit('step', step);
   }
 
-  static async build(location: string, options?: Assistant['options']): Promise<Assistant> {
+  static async build(location: string, options?: Omit<Partial<Assistant['context']>, 'model'> & {
+    model?: string;
+    rate?: number;
+  }): Promise<Assistant> {
     const cwd = options?.cwd ?? process.cwd();
     const source = await AssistantSource.build(location, options);
 
     const dependencies = await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => null);
     const editorconfig = await fs.readFile(path.join(cwd, '.editorconfig'), 'utf8').catch(() => null);
 
+    const router = AssistantRouter.build();
+    const provider = router.provide(options?.model ?? env.model);
+
     const provided: strategies.AssistantStrategy['provided'] = {
+      provider,
       target: options?.target,
-      model: options?.model,
 
       ...(dependencies && {
         dependencies: (() => {
@@ -142,6 +167,14 @@ export class Assistant {
       strategies.AssistantFixStrategy.build(source, provided),
     ];
 
-    return new Assistant(source, compiled, options);
+    return new Assistant(source, compiled, {
+      cwd,
+      provider,
+
+      target: options?.target ?? env.target,
+      iterations: options?.iterations ?? env.iterations,
+
+      strategies: options?.strategies,
+    });
   }
 }

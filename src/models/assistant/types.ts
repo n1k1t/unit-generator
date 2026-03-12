@@ -6,15 +6,17 @@ import type * as strategies from './strategies';
 export type TAssistantStrategyRunStatus = 'DONE' | 'EMPTY' | 'SKIPPED' | 'FAILED';
 export type TAssistantSourceTestResult = { status: 'PASSED' } | { status: 'FAILED', message: string };
 
+export type TAssistantStrategyName = {
+    [K in keyof typeof strategies]: InstanceType<typeof strategies[K]>['name'];
+  }[keyof typeof strategies];
+
 export interface IAssistantSourceSnapshot {
   cobertura: Pick<Cobertura, 'rate' | 'uncovered'>;
   spec: Pick<File, 'content'>;
 }
 
 export interface IAssistantStep {
-  strategy: {
-    [K in keyof typeof strategies]: InstanceType<typeof strategies[K]>['name'];
-  }[keyof typeof strategies];
+  strategy: TAssistantStrategyName;
 
   status: TAssistantStrategyRunStatus;
   iteration: number;

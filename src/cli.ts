@@ -61,7 +61,25 @@ program
 
           model: options.model,
           paths: command.args,
+          all: options.all,
+        })
+      )
+  )
+  .addCommand(
+    new Command()
+      .command('fix [pattern]')
+      .description('Fixes falling unit tests')
+      .option('-m, --model [value]', 'AI model to use for unit tests generation', env.model)
+      .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', String(env.iterations))
+      .option('-l --limit [value]', 'Files limit', '5')
+      .option('-a --all', 'Takes all paths provided by pattern', false)
+      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['fix'], command: Command) =>
+        commands.fix({
+          ...(options.iterations && { iterations: Number(options.iterations) }),
+          ...(options.limit && { limit: Number(options.limit) }),
 
+          model: options.model,
+          paths: command.args,
           all: options.all,
         })
       )
