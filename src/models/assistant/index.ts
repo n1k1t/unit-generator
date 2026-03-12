@@ -18,7 +18,7 @@ export * from './types';
 export * from './router';
 
 export class Assistant {
-  public timestamp: number = Date.now();
+  public timestamp: number = 0;
   private spent: number = 0;
 
   public steps: IAssistantStep[] = [];
@@ -65,7 +65,9 @@ export class Assistant {
     if (this.source.checkHasReachedCoverage() && this.state.status === 'DONE') {
       return this.complete();
     }
+
     if (this.state.status === 'PREPARING') {
+      this.timestamp = Date.now();
       this.state.status = 'GENERATION';
     }
 
