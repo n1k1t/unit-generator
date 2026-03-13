@@ -1,19 +1,37 @@
 import fs from 'fs/promises';
-
-import { tool } from 'ai';
 import { z } from 'zod';
 
-export default () => tool({
-  description: 'Read the contents of a file',
+import { checkPatternIsRestricted } from './utils';
+import { AssistantToolCompiler } from './model';
 
-  inputSchema: z.object({
-    path: z.string().describe('The path to the file to read'),
+export default AssistantToolCompiler
+  .build('Read the contents of a file')
+  .input(
+    z.object({
+      path: z.string().describe('The path to the file to read'),
 
-    start: z.number().optional().describe('The line number to start reading from (1-indexed)'),
-    end: z.number().optional().describe('The line number to end reading at (inclusive)'),
-  }),
+      start: z.number().optional().describe('The line number to start reading from (1-indexed)'),
+      end: z.number().optional().describe('The line number to end reading at (inclusive)'),
+    })
+  )
+  .output(
+    z.union([
+      z.object({
+        error: z.string().describe('Error message'),
+      }),
 
-  execute: async ({ path, start, end }) => {
+      z.object({
+        content: z.string().describe('File content'),
+      }),
+    ])
+  )
+  .execute(() => async ({ path, start, end }) => {
+    if (!checkPatternIsRestricted(path)) {
+      return {
+        error: 'Path is going to out of scope the project',
+      };
+    }
+
     try {
       const content = await fs.readFile(path, 'utf-8');
 
@@ -39,5 +57,4 @@ export default () => tool({
         error: formatted.message,
       };
     }
-  },
-});
+  });

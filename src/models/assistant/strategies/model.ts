@@ -11,8 +11,8 @@ export abstract class AssistantStrategy<K extends string & {} = string & {}> {
   public history: Set<{ generated: string, message: string }> = new Set();
 
   public tools: Record<string, Tool> = {
-    grep: grep(this),
-    read: read(),
+    grep: grep.compile(this.source),
+    read: read.compile(this.source),
   };
 
   public handleAiError(error: unknown): null | never {
