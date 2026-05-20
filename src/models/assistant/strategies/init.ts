@@ -1,15 +1,12 @@
-import json2md, { DataObject } from 'json2md';
-
-import { generateText, Output, stepCountIs } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { TAssistantSourceTestResult, TAssistantStrategyRunStatus } from '../types';
 import { AssistantStrategy } from './model';
-import { cast } from '../../../utils';
+import { ArticleContent } from '../../content';
 
 import env from '../../../env';
 
-export class AssistantInitStrategy extends AssistantStrategy<'INIT'> {
+export class AssistantInitStrategy extends AssistantStrategy {
   public get schema() {
     return z.object({
       imports: z.array(
@@ -30,8 +27,42 @@ export class AssistantInitStrategy extends AssistantStrategy<'INIT'> {
     }
 
     const snapshot = this.source.compileSnapshot();
+    const context = this.compileContext();
 
-    const generated = await this.generate();
+    const generated = await this.generate({
+      schema: this.schema,
+
+      messages: {
+        system: ArticleContent
+          .build({
+            title: 'Context',
+            tag: 'h1',
+
+            content: [
+              context.overview,
+              context.project,
+              context.history,
+            ],
+          })
+          .render(),
+
+        user: ArticleContent
+          .build({
+            title: 'Task',
+            tag: 'h1',
+
+            content: [{
+              ol: [
+                'Explore the `Context` article',
+                'Generate unit tests',
+                'The first unit test must always pass, for example: `it(\'should pass\', () => expect(1).toEqual(1))`',
+              ],
+            }],
+          })
+          .render(),
+      },
+    });
+
     if (!generated?.specs.length) {
       return 'EMPTY';
     }
@@ -98,57 +129,6 @@ export class AssistantInitStrategy extends AssistantStrategy<'INIT'> {
     return index === generated.specs.length - 1
       ? results.concat([tested]).some((result) => result.status === 'PASSED') ? 'DONE' : 'FAILED'
       : this.injectSpecs(generated, results.concat([tested]));
-  }
-
-  private async generate(): Promise<z.input<AssistantInitStrategy['schema']> | null> {
-    const context = this.compileContext();
-
-    const response = await generateText({
-      prompt: json2md(
-        cast<DataObject[]>([
-          { h3: 'Request identifier' },
-          { p: Date.now().toString(32) },
-
-          ...context.overview,
-          ...context.project,
-          ...context.tools,
-          ...context.history,
-
-          { hr: '' },
-          { h1: 'Task' },
-
-          {
-            ol: [
-              'Analyze the task context described above',
-              'Write unit tests based on the task context described above',
-              'The first unit test must always pass, for example: `it(\'should pass\', () => expect(1).toEqual(1))`',
-            ],
-          },
-        ])
-      ),
-
-      ...(env.debug && {
-        experimental_telemetry: {
-          isEnabled: true
-        },
-      }),
-
-      output: Output.object({ schema: this.schema }),
-      providerOptions: this.provider.options,
-
-      temperature: 0.1,
-
-      model: this.provider.model,
-      tools: this.tools,
-
-      stopWhen: stepCountIs(30),
-    }).catch((error) => this.handleAiError(error));
-
-    try {
-      return response?.output ?? null;
-    } catch (error) {
-      return this.handleAiError(error);
-    };
   }
 
   static build(

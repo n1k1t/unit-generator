@@ -4,12 +4,12 @@
 .nvmrc
 .env
 
-discardedTests.txt
 tsconfig.json
 
 .opencode/
 .vscode/
 .husky/
+.bin/
 .ai/
 
 /coverage/

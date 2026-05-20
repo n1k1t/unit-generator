@@ -9,16 +9,16 @@
 .DS_Store
 .env
 
-.vscode/
-
-discardedTests.txt
 npm-debug.log
 
-/node_modules/
-/lib/
+.vscode/
+.bin/
 
-/src/generated/**
-!/src/generated/.keep.ts
+node_modules/
+lib/
 
-/coverage/**
-!/coverage/cobertura-coverage.xml
+src/generated/**
+!src/generated/.keep.ts
+
+coverage/**
+!coverage/cobertura-coverage.xml

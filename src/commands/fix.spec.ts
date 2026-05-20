@@ -1,7 +1,6 @@
 import { Assistant } from '../models';
-
 import * as utils from './utils';
-import path from 'path';
+
 import fix from './fix';
 import env from '../env';
 
@@ -20,14 +19,13 @@ it('should call extractCoberturaItems with correct arguments including env cober
   jest.spyOn(utils, 'extractIgnoredPaths').mockResolvedValue(['node_modules']);
   jest.spyOn(utils, 'buildRenderer').mockReturnValue(jest.fn());
   const cwd = process.cwd();
-  await fix({ limit: 5, all: true, paths: ['src/file.ts'] });
-  expect(extractCoberturaItemsSpy).toHaveBeenCalledWith(path.join(cwd, env.cobertura), {
+  await fix({ limit: 5, paths: ['src/file.ts'] });
+  expect(extractCoberturaItemsSpy).toHaveBeenCalledWith(env.cobertura, {
     ignore: ['node_modules'],
     target: Infinity,
     cwd,
     paths: ['src/file.ts'],
-    limit: 5,
-    all: true
+    limit: 5
   });
 })
 

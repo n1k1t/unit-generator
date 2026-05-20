@@ -78,11 +78,6 @@ export class Spec extends File {
     this.parse();
   }
 
-  public replace(source: string, target: string): this {
-    this.content = this.content.split(source).join(target);
-    return this;
-  }
-
   private extractAstNodes(): TAstNode[] {
     try {
       const ast = recast.parse(this.content, { parser: ['js', 'ts'].includes(this.lang) ? typescript : babel });

@@ -1,169 +1,451 @@
-import { NoObjectGeneratedError, NoOutputGeneratedError, Tool } from 'ai';
+import EventEmitter from 'events';
+import _ from 'lodash';
+
 import { DataObject } from 'json2md';
+import { ZodType } from 'zod/v3';
+import {
+  APICallError,
+  ModelMessage,
+  NoObjectGeneratedError,
+  Output,
+  ProviderMetadata,
+  streamText,
+  Tool,
+  ToolResultPart,
+} from 'ai';
 
+import { ArticleContent, GroupContent } from '../../content';
 import { TAssistantStrategyRunStatus } from '../types';
-import { IAssistantModelProvider } from '../router';
 import { AssistantSource } from '../source';
-import { grep, read } from '../tools';
+import { LlmProvider } from '../../llm';
+import { cast } from '../../../utils';
 
-export abstract class AssistantStrategy<K extends string & {} = string & {}> {
-  public provider: IAssistantModelProvider = this.provided.provider;
+import * as tools from '../../llm/tools';
+import env from '../../../env';
+
+interface IAgentToolCall {
+  type: 'tool';
+
+  id: string;
+  name: string;
+
+  input: unknown;
+  output: {
+    type: 'text' | 'json' | 'error',
+    value: unknown;
+  };
+
+  provider?: ProviderMetadata;
+}
+
+interface IAgentReasoning {
+  type: 'reasoning';
+
+  id: string;
+  text: string;
+
+  provider?: ProviderMetadata;
+}
+
+type TAgentAction = IAgentToolCall | IAgentReasoning;
+
+export class AssistantStrategyError extends Error {
+  constructor(
+    public type: 'EMPTY_OUTPUT' | 'WRONG_RESPONSE' | 'BAD_API_CALL',
+    public reason: string = 'none'
+  ) {
+    super(`Got error [${type}] while generation. Reason: ${reason}`);
+  }
+
+  public is(types: AssistantStrategyError['type'][]): boolean {
+    return types.includes(this.type);
+  }
+
+  static convert(error: unknown) {
+    if (error instanceof AssistantStrategyError) {
+      return error;
+    }
+
+    if (APICallError.isInstance(error)) {
+      return new AssistantStrategyError('BAD_API_CALL', error.message);
+    }
+    if (NoObjectGeneratedError.isInstance(error)) {
+      return new AssistantStrategyError('WRONG_RESPONSE', error.message);
+    }
+
+    return new AssistantStrategyError(
+      'BAD_API_CALL',
+      String(_.isObject(error) && 'message' in error ? error.message : error)
+    );
+  }
+}
+
+export abstract class AssistantStrategy extends EventEmitter<{
+  reasoning: [{ text: string; iteration: number }];
+  tool: [{ name: string; iteration: number; status: 'OK' | 'ERROR' }];
+}> {
+  public provider: LlmProvider = this.provided.provider;
   public history: Set<{ generated: string, message: string }> = new Set();
 
   public tools: Record<string, Tool> = {
-    grep: grep.compile(this.source),
-    read: read.compile(this.source),
+    grep: tools.grep.compile(this.source),
+    glob: tools.glob.compile(this.source),
+    read: tools.read.compile(this.source),
   };
 
-  public handleAiError(error: unknown): null | never {
-    if (error instanceof NoObjectGeneratedError) {
-      return null;
+  constructor(
+    public name: string,
+    public source: AssistantSource,
+    private provided: Pick<AssistantStrategy, 'provider'> & {
+      target?: number;
     }
-    if (error instanceof NoOutputGeneratedError) {
-      return null;
-    }
-
-    throw error;
+  ) {
+    super();
   }
 
-  public compileContext(): Record<'overview' | 'project' | 'tools' | 'history', DataObject[]> {
+  public abstract run(): Promise<TAssistantStrategyRunStatus>;
+
+  protected compileContext(): Record<'overview' | 'project' | 'history', GroupContent> {
     return {
-      overview: [
-        { h1: 'Context' },
+      overview: GroupContent
+        .build([
+          ArticleContent.build({
+            title: 'Requirements for writing unit tests',
 
-        { h3: 'Requirements for writing unit tests' },
-        {
-          ol: [
-            'Follow the provided editorconfig below for formatting the generated code',
-            'Follow the rule "One unit test - one assertion"',
-            'Each generated unit-test code should be a function, for example: `it(...)`',
-            'Each generated import must be in the form of a code line, for example: `import ...`, `require(...)`',
-            'DO NOT use functions for grouping unit tests, for example: `describe(...)`',
-            'DO NOT use hooks, for example: `beforeEach(...)`, `beforeAll(...)`',
-            'DO NOT provide already existing imports of entities',
-            'DO NOT generate unit test code in one line',
-            'DO NOT generate comments in the code',
-          ],
-        },
-      ],
+            content: [{
+              ol: [
+                'Follow the provided editorconfig below for formatting the generated code',
+                'Follow the rule "One unit test - one assertion"',
+                'Each generated unit-test code should be a function, for example: `it(...)`',
+                'Each generated import must be in the form of a code line, for example: `import ...`, `require(...)`',
+                'DO NOT use functions for grouping unit tests, for example: `describe(...)`',
+                'DO NOT use hooks, for example: `beforeEach(...)`, `beforeAll(...)`',
+                'DO NOT provide already existing imports of entities',
+                'DO NOT generate unit test code in one line',
+                'DO NOT generate comments in the code',
+              ],
+            }],
+          }),
+        ]),
 
-      project: [
-        { h3: 'Contents of the editorconfig file' },
-        {
-          code: {
-            language: 'editorconfig',
-            content: this.provided.editorconfig ?? '',
-          },
-        },
+      project: GroupContent.build([
+        this.source.project.content.dependencies(),
+        this.source.project.content.editorconfig(),
 
-        { h3: 'Available packages and tools in the project' },
-        {
-          code: {
-            language: 'txt',
-            content: Object
-              .entries((this.provided.dependencies ?? {}))
-              .map(([name, version]) => `${name}: ${version}`)
-              .join('\n'),
-          },
-        },
+        ArticleContent.build({
+          title: 'Location of the source code file',
+          content: [{ p: `\`${this.source.code.path}\`` }],
+        }),
 
-        { h3: 'Project files tree' },
-        {
-          code: {
-            language: 'txt',
-            content: (() => {
-              const tree: Record<string, any> = {};
+        ArticleContent.build({
+          title: 'Source code',
 
-              this.source.tree.forEach((path) => {
-                let current = tree;
-
-                path.split('/').forEach((part) => {
-                  if (!current[part]) {
-                    current[part] = {};
-                  }
-
-                  current = current[part];
-                });
-              });
-
-              const format = (obj: Record<string, any>, indent = 0): string =>
-                Object
-                  .keys(obj)
-                  .map((key) => {
-                    const children = format(obj[key], indent + 2);
-                    return ' '.repeat(indent) + key + (children ? `\n${children}` : '');
-                  })
-                  .join('\n');
-
-              return format(tree);
-            })(),
-          },
-        },
-
-        { h3: 'Location of the source code file' },
-        { p: `\`${this.source.code.path}\`` },
-
-        { h3: 'Source code' },
-        {
-          code: {
-            language: this.source.code.lang,
-            content: this.source.code.content,
-          },
-        },
-      ],
-
-      tools: [
-        { h3: 'Availablse tools' },
-        {
-          ul: [
-            '`grep`: Search code in the project by pattern',
-            '`read`: Read a file content',
-          ],
-        },
-
-        { h3: 'Tools usage rules' },
-        {
-          ol: [
-            'Use provided tools for searching nearest dependencies for the source code only',
-            'Use it as little as possible',
-            'DO NOT search dependencies that could be mocked by creating a primitive example',
-            'DO NOT make more than **20** tool calls',
-          ],
-        },
-      ],
-
-      history: [
-        { h3: 'List of generated specs those got failure' },
-
-        ...Array.from(this.history).reduce<DataObject[]>((acc, segment) => {
-          acc.push({ p: 'Generated spec:' });
-          acc.push({
+          content: [{
             code: {
-              language: this.source.spec.lang,
-              content: segment.generated,
+              language: this.source.code.lang,
+              content: this.source.code.content,
             },
-          });
+          }],
+        }),
+      ]),
 
-          acc.push({ p: 'Failure message:' });
-          acc.push({
-            code: {
-              language: 'bash',
-              content: segment.message,
-            },
-          });
+      history: GroupContent.build([
+        ArticleContent.build({
+          title: 'List of generated specs those got failure',
 
-          return acc;
-        }, []),
-      ],
+          content: Array.from(this.history).reduce<DataObject[]>((acc, segment) => {
+            acc.push({ p: 'Generated spec:' });
+            acc.push({
+              code: {
+                language: this.source.spec.lang,
+                content: segment.generated,
+              },
+            });
+
+            acc.push({ p: 'Failure message:' });
+            acc.push({
+              code: {
+                language: 'bash',
+                content: segment.message,
+              },
+            });
+
+            return acc;
+          }, []),
+        })
+      ]),
     };
   }
 
-  constructor(public name: K, public source: AssistantSource, private provided: Pick<AssistantStrategy, 'provider'> & {
-    target?: number;
+  protected async generate<T>(provided: {
+    schema: ZodType<T>;
 
-    dependencies?: Record<string, string>;
-    editorconfig?: string;
-  }) {}
+    messages: {
+      user: string;
+      system: string;
 
-  public abstract run(): Promise<TAssistantStrategyRunStatus>;
+      history?: {
+        actions: (IAgentToolCall | IAgentReasoning)[];
+        provider?: ProviderMetadata;
+      }[];
+    };
+
+    errors?: AssistantStrategyError[];
+
+    iteration?: number;
+    limit?: number;
+  }): Promise<T | null> {
+    const iteration = provided.iteration ?? 1;
+    const limit = provided.limit ?? 50;
+
+    const actions = {
+      sequence: cast<string[]>([]),
+      map: cast<Record<string, TAgentAction>>({}),
+    };
+
+    const info = ArticleContent
+      .build({
+        title: 'Request info',
+
+        content: [
+          { p: `**Identifier:** ${Date.now().toString(32)}` },
+          { p: `**Current date/time in ISO format:** ${new Date().toISOString()}` },
+          { p: `**Current attempt of the task completion:** ${iteration}/${limit}` },
+        ],
+      })
+      .render();
+
+    const messages: ModelMessage[] = [
+      {
+        role: 'system',
+        content: [info, provided.messages.system].join('\n\n'),
+      },
+      {
+        role: 'user',
+        content: provided.messages.user,
+      },
+    ];
+
+    if (provided.messages.history?.length) {
+      provided.messages.history.forEach((record) =>
+        messages.push(
+          {
+            role: 'assistant',
+            providerOptions: record.provider,
+
+            content: record.actions.map((action) => {
+              if (action.type === 'reasoning') {
+                return {
+                  type: 'reasoning',
+                  text: action.text,
+
+                  providerOptions: action.provider,
+                  id: action.id,
+                };
+              }
+
+              return {
+                type: 'tool-call',
+
+                providerOptions: action.provider,
+                toolName: action.name,
+
+                toolCallId: action.id,
+                input: action.input,
+              };
+            }),
+          },
+          {
+            role: 'tool',
+            providerOptions: record.provider,
+
+            content: record.actions.filter((action) => action.type === 'tool').map((action) => ({
+              type: 'tool-result',
+
+              providerOptions: action.provider,
+              toolCallId: action.id,
+              toolName: action.name,
+
+              output: <ToolResultPart['output']>{
+                type: action.output.type === 'error' ? 'error-text' : action.output.type,
+                value: action.output.value,
+              },
+            })),
+          }
+        )
+      );
+    }
+
+    try {
+      const stream = streamText({
+        messages,
+
+        ...(env.debug && {
+          experimental_telemetry: {
+            isEnabled: true,
+          },
+        }),
+
+        output: Output.object({
+          schema: provided.schema,
+        }),
+
+        providerOptions: {
+          [this.provider.name]: this.provider.options,
+        },
+
+        maxOutputTokens: 32000,
+        temperature: 0.1,
+        maxRetries: 0,
+
+        model: this.provider.tag,
+        tools: this.tools,
+
+        onError: () => undefined,
+      });
+
+      for await (const fragment of stream.fullStream) {
+        if (fragment.type === 'tool-call') {
+          const action: TAgentAction = {
+            type: 'tool',
+
+            id: fragment.toolCallId,
+            name: fragment.toolName,
+            provider: fragment.providerMetadata,
+
+            input: fragment.input,
+            output: {
+              type: 'text',
+              value: undefined,
+            },
+          };
+
+          actions.map[fragment.toolCallId] = action;
+        }
+
+        if (fragment.type === 'tool-result') {
+          const action = actions.map[fragment.toolCallId];
+
+          if (action?.type === 'tool') {
+            if (fragment.providerMetadata) {
+              action.provider = fragment.providerMetadata;
+            }
+
+            action.output = {
+              type: _.isObject(fragment.output) ? 'json' : 'text',
+              value: fragment.output,
+            };
+
+            actions.sequence.push(fragment.toolCallId);
+            this.emit('tool', { iteration, name: fragment.toolName, status: 'OK' });
+          }
+        }
+
+        if (fragment.type === 'tool-error') {
+          const action = actions.map[fragment.toolCallId];
+
+          if (action?.type === 'tool') {
+            if (fragment.providerMetadata) {
+              action.provider = fragment.providerMetadata;
+            }
+
+            action.output = {
+              type: 'error',
+              value: fragment.error instanceof Error ? fragment.error.message : String(fragment.error),
+            };
+
+            actions.sequence.push(fragment.toolCallId);
+            this.emit('tool', { iteration, name: fragment.toolName, status: 'ERROR' });
+          }
+        }
+
+        if (fragment.type === 'reasoning-start') {
+          const action: TAgentAction = {
+            type: 'reasoning',
+
+            id: fragment.id,
+            provider: fragment.providerMetadata,
+
+            text: '',
+          };
+
+          actions.map[fragment.id] = action;
+        }
+
+        if (fragment.type === 'reasoning-delta') {
+          const action = actions.map[fragment.id];
+
+          if (action?.type === 'reasoning') {
+            if (fragment.providerMetadata) {
+              action.provider = fragment.providerMetadata;
+            }
+
+            action.text += fragment.text;
+          }
+        }
+
+        if (fragment.type === 'reasoning-end') {
+          const action = actions.map[fragment.id];
+
+          if (action?.type === 'reasoning') {
+            if (fragment.providerMetadata) {
+              action.provider = fragment.providerMetadata;
+            }
+
+            actions.sequence.push(fragment.id);
+            this.emit('reasoning', { iteration, text: action.text });
+          }
+        }
+
+        if (fragment.type === 'error' && fragment.error instanceof Error) {
+          throw AssistantStrategyError.convert(fragment.error);
+        }
+      }
+
+      const output = await stream.output;
+      if (typeof output === 'string' && !output.length) {
+        throw new AssistantStrategyError('EMPTY_OUTPUT');
+      }
+
+      return output;
+    } catch (error: unknown) {
+      const converted = AssistantStrategyError.convert(error);
+
+      if (actions.sequence.length) {
+        converted.type = 'EMPTY_OUTPUT';
+      }
+
+      const errors = converted.is(['EMPTY_OUTPUT']) ? [] : (provided.errors ?? []);
+      errors.push(converted);
+
+      if (iteration < limit && !converted.is(['EMPTY_OUTPUT', 'WRONG_RESPONSE'])) {
+        throw converted;
+      }
+      if (iteration >= limit) {
+        throw converted;
+      }
+      if (errors.filter((nested) => nested.is(['WRONG_RESPONSE'])).length >= 3) {
+        throw converted;
+      }
+
+      return this.generate({
+        errors,
+
+        iteration: iteration + 1,
+        schema: provided.schema,
+
+        messages: {
+          system: provided.messages.system,
+          user: provided.messages.user,
+
+          history: converted.is(['EMPTY_OUTPUT'])
+            ? (provided.messages.history ?? []).concat([{
+              provider: Object.values(actions.map).find((action) => action.provider)?.provider,
+              actions: actions.sequence.map((id) => actions.map[id]),
+            }])
+            : provided.messages.history,
+        },
+      });
+    }
+  }
 }

@@ -1,12 +1,12 @@
+import path from 'path';
+import fs from 'fs/promises';
+
 import { v4 as genUid } from 'uuid';
 import { spawn } from 'child_process';
 
-import path from 'path';
-import fs from 'fs/promises';
-import fg from 'fast-glob';
-
 import { IAssistantSourceSnapshot, TAssistantSourceTestResult } from './types';
 import { Cobertura } from '../cobertura';
+import { Project } from '../project';
 import { cast } from '../../utils';
 import { File } from '../file';
 import { Spec } from '../spec';
@@ -18,13 +18,11 @@ export class AssistantSource {
   public status = cast<'PASSED' | 'FAILED' | 'PENDING'>('PENDING');
 
   public cobertura: Cobertura = this.provided.cobertura;
+  public project: Project = this.provided.project;
   public temp: string = this.provided.temp;
 
   public code: File = this.provided.code;
   public spec: Spec = this.provided.spec;
-
-  public ignore: string[] = this.provided.ignore;
-  public tree: string[] = this.provided.tree;
 
   public target = this.provided?.target ?? env.target;
   public timestamp = Date.now();
@@ -32,9 +30,17 @@ export class AssistantSource {
 
   private saved: IAssistantSourceSnapshot | null = null;
 
-  constructor(private provided: Pick<AssistantSource, 'id' | 'code' | 'spec' | 'cobertura' | 'temp' | 'tree' | 'ignore'> & {
+  constructor(private provided: Pick<AssistantSource, 'id' | 'code' | 'spec' | 'cobertura' | 'temp'> & {
+    project: Project;
     target?: number;
   }) {}
+
+  public refresh(): this {
+    this.timestamp = Date.now();
+    this.status = 'PENDING';
+
+    return this;
+  }
 
   public checkHasReachedCoverage(): boolean {
     return this.cobertura.rate >= this.target;
@@ -109,16 +115,18 @@ export class AssistantSource {
     const spec = await Spec.build(path.join(parsed.dir, `${parsed.name}.spec${parsed.ext}`));
 
     const cobertura = await Cobertura.build(path.join(temp, 'cobertura-coverage.xml'));
+    const project = await Project.build({ cwd });
 
-    const gitignore = await fs.readFile('.gitignore', 'utf8').catch(() => '');
-    const ignore = gitignore
-      .split('\n')
-      .map((segment) => segment.trim().replace(/^\//, '').replace(/\/$/, '/**'))
-      .filter((segment) => segment.length)
-      .concat(['**/*.spec.{ts,js}']);
+    const source = new AssistantSource({
+      id,
+      temp,
+      code,
+      spec,
+      cobertura,
+      project,
 
-    const tree = await fg(['**/*.{ts,js,json}'], { ignore });
-    const source = new AssistantSource({ id, temp, code, spec, cobertura, tree, ignore, target: options?.target });
+      target: options?.target,
+    });
 
     if (options?.rate !== undefined) {
       cobertura.assign({ rate: options.rate });

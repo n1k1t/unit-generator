@@ -6,24 +6,20 @@ export interface IUnitGeneratorCliOptions {
   analyze: {
     target: string;
     limit: string;
-
-    all: boolean;
   };
 
   generate: {
-    iterations: string;
     target: string;
     limit: string;
 
+    iterations: string;
     model: string;
-    all: boolean;
   };
 
   fix: {
-    iterations: string;
     limit: string;
 
+    iterations: string;
     model: string;
-    all: boolean;
   };
 }

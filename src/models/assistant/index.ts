@@ -1,10 +1,9 @@
 import EventEmitter from 'events';
-import path from 'path';
 import fs from 'fs/promises';
 import _ from 'lodash';
 
-import { IAssistantEvents, IAssistantState, IAssistantStep, TAssistantStrategyName } from './types';
-import { AssistantRouter, IAssistantModelProvider } from './router';
+import { IAssistantEvents, IAssistantState, IAssistantStep, TAssistantStatus, TAssistantStrategyName } from './types';
+import { LlmProvider, LlmRouter } from '../llm';
 import { AssistantSource } from './source';
 import { buildCounter } from '../../utils';
 import { TFunction } from '../../../types';
@@ -15,27 +14,26 @@ import env from '../../env';
 export * from './strategies';
 export * from './source';
 export * from './types';
-export * from './router';
 
 export class Assistant {
-  public timestamp: number = 0;
-  private spent: number = 0;
-
+  public status: TAssistantStatus = 'PREPARING';
   public steps: IAssistantStep[] = [];
+
   public state: IAssistantState = {
-    strategy: 'NONE',
-    status: 'PREPARING',
+    strategy: '⏱',
   };
 
   private counter = buildCounter(1);
   private events = new EventEmitter();
+
+  private spent: number = 0;
 
   constructor(
     public source: AssistantSource,
     public strategies: strategies.AssistantStrategy[],
     public context: {
       cwd: string;
-      provider: IAssistantModelProvider;
+      provider: LlmProvider;
 
       target: number;
       iterations: number;
@@ -43,12 +41,32 @@ export class Assistant {
       /** Restricts to use only provided strategies */
       strategies?: TAssistantStrategyName[];
     }
-  ) {}
+  ) {
+    strategies.forEach((strategy) => {
+      strategy.on('tool', (payload) => {
+        this.state.action = {
+          type: 'tool',
+
+          status: payload.status,
+          message: `[${payload.iteration}] ${payload.name}`,
+        };
+      });
+
+      strategy.on('reasoning', (payload) => {
+        this.state.action = {
+          type: 'reasoning',
+
+          status: 'OK',
+          message: `[${payload.iteration}] ${_.truncate(payload.text, { length: 25 })}`,
+        }
+      })
+    });
+  }
 
   public calculateTimeSpent(): number {
-    return this.state.status === 'PREPARING' || this.state.status === 'COMPLETED'
+    return this.is(['PREPARING', 'COMPLETED'])
       ? this.spent
-      : (Date.now() - this.timestamp);
+      : (Date.now() - this.source.timestamp);
   }
 
   public async clear(): Promise<void> {
@@ -60,36 +78,39 @@ export class Assistant {
   }
 
   public async run(iterations: number = this.context.iterations): Promise<void> {
-    const skipsCounter = buildCounter();
-
-    if (this.source.checkHasReachedCoverage() && this.state.status === 'DONE') {
+    if (this.source.checkHasReachedCoverage()) {
       return this.complete();
     }
 
-    if (this.state.status === 'PREPARING') {
-      this.timestamp = Date.now();
-      this.state.status = 'GENERATION';
+    if (this.is(['PREPARING'])) {
+      this.source.refresh();
+      this.status = 'PENDING';
     }
+
+    const skipsCounter = buildCounter();
+    const step = this.register({
+      status: 'PREPARING',
+      strategy: '⏱',
+
+      snapshot: this.source.compileSnapshot(),
+      iteration: this.counter(),
+    });
 
     for await (const strategy of this.strategies) {
       if (this.context.strategies?.length && !this.context.strategies.includes(strategy.name)) {
         continue;
       }
 
-      const status = await strategy.run();
+      this.state.strategy = strategy.name;
 
+      const status = await strategy.run();
       if (status === 'SKIPPED') {
         skipsCounter();
         continue;
       }
 
-      this.register({
-        status,
-
-        snapshot: this.source.compileSnapshot(),
-        strategy: strategy.name,
-        iteration: this.counter(0),
-      });
+      step.strategy = strategy.name;
+      step.status = status;
 
       break;
     }
@@ -98,9 +119,13 @@ export class Assistant {
       return this.complete();
     }
 
-    return this.counter() <= iterations
+    return this.counter(0) <= iterations
       ? this.run(iterations)
       : this.complete();
+  }
+
+  public is(statuses: TAssistantStatus[]): boolean {
+    return statuses.includes(this.status);
   }
 
   public on<K extends keyof IAssistantEvents>(key: K, listener: TFunction<unknown, IAssistantEvents[K]>): this {
@@ -120,16 +145,19 @@ export class Assistant {
 
   private async complete(): Promise<void> {
     this.spent = this.calculateTimeSpent();
-    this.state.status = 'COMPLETED';
+    this.status = 'COMPLETED';
 
     return this.clear();
   }
 
-  private register(step: IAssistantStep): this {
+  private register(step: IAssistantStep): IAssistantStep {
     this.steps.push(step);
-    this.state = step;
+    this.emit('step', step);
 
-    return this.emit('step', step);
+    this.state.strategy = step.strategy;
+    this.state.action = undefined;
+
+    return step;
   }
 
   static async build(location: string, options?: Omit<Partial<Assistant['context']>, 'model'> & {
@@ -139,39 +167,13 @@ export class Assistant {
     const cwd = options?.cwd ?? process.cwd();
     const source = await AssistantSource.build(location, options);
 
-    const dependencies = await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => null);
-    const editorconfig = await fs.readFile(path.join(cwd, '.editorconfig'), 'utf8').catch(() => null);
-
-    const router = AssistantRouter.build();
+    const router = LlmRouter.build();
     const provider = router.provide(options?.model ?? env.model);
 
-    const provided: strategies.AssistantStrategy['provided'] = {
-      provider,
-      target: options?.target,
-
-      ...(dependencies && {
-        dependencies: (() => {
-          const json: Partial<Record<'dependencies' | 'devDependencies', object>> = JSON.parse(dependencies);
-
-          return Object
-            .entries(Object.assign(json.dependencies ?? {}, json.devDependencies ?? {}))
-            .filter(([name]) => !name.startsWith('@types/'))
-            .reduce((acc, [name, version]) => _.set(acc, name, version), {});
-        })(),
-      }),
-
-      ...(editorconfig && {
-        editorconfig: editorconfig
-          .split('\n')
-          .filter((line) => !line.startsWith('#'))
-          .join('\n'),
-      }),
-    };
-
     const compiled: Assistant['strategies'] = [
-      strategies.AssistantInitStrategy.build(source, provided),
-      strategies.AssistantAddStrategy.build(source, provided),
-      strategies.AssistantFixStrategy.build(source, provided),
+      strategies.AssistantInitStrategy.build(source, { provider, target: options?.target }),
+      strategies.AssistantAddStrategy.build(source, { provider, target: options?.target }),
+      strategies.AssistantFixStrategy.build(source, { provider, target: options?.target }),
     ];
 
     return new Assistant(source, compiled, {

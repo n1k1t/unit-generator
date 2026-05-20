@@ -1,0 +1,160 @@
+import minimatch from 'minimatch';
+import path from 'path';
+import fs from 'fs/promises';
+import fg from 'fast-glob';
+import _ from 'lodash';
+
+import { AttachmentContent, Content, GroupContent } from './content';
+import { TFunction } from '../../types';
+
+const renderFilesTree = (tree: Record<string, any>, indent = 0): string =>
+  Object
+    .keys(tree)
+    .map((key) => {
+      const children = renderFilesTree(tree[key], indent + 2);
+      return ' '.repeat(indent) + key + (children ? `\n${children}` : '');
+    })
+    .join('\n');
+
+export class Project {
+  public cwd: string = this.provided.cwd ?? process.cwd();
+
+  public sources: {
+    ignore: string[];
+    files: string[];
+
+    editorconfig?: string;
+    dependencies?: Record<string, string>;
+  } = this.provided.sources;
+
+  public content = {
+    /** Renders `.package.json` content */
+    dependencies: (): Content => {
+      if (!this.sources.dependencies) {
+        return GroupContent.build([]);
+      }
+
+      return AttachmentContent.build({
+        title: 'Available packages in the `package.json` of this project',
+        content: Object
+          .entries((this.sources.dependencies))
+          .map(([name, version]) => `${name} (version ${version})`)
+          .join('\n')
+      })
+    },
+
+    /** Renders `.editorconfig` content */
+    editorconfig: (): Content => {
+      if (!this.sources.editorconfig?.length) {
+        return GroupContent.build([]);
+      }
+
+      return AttachmentContent.build({
+        title: 'Editor config file content',
+
+        extension: '.editorconfig',
+        content: this.sources.editorconfig,
+      });
+    },
+
+    /** Renders project files tree */
+    tree: (patterns?: string[]): Content => {
+      const filtered = this.files.glob(patterns);
+      if (!filtered.length) {
+        return GroupContent.build([]);
+      }
+
+      const tree: Record<string, any> = {};
+
+      filtered.forEach((path: string) => {
+        let current = tree;
+
+        path.split('/').forEach((part: string) => {
+          if (!current[part]) {
+            current[part] = {};
+          }
+
+          current = current[part];
+        });
+      });
+
+      return AttachmentContent.build({
+        title: 'Project files tree',
+        content: renderFilesTree(tree),
+      });
+    },
+  } satisfies Record<string, TFunction<Content, any[]>>;
+
+  public files = {
+    /** Returns glob result of the project files */
+    glob: (patterns?: string[]): string[] => {
+      if (!patterns?.length) {
+        return this.sources.files;
+      }
+
+      const parsed = patterns.map((pattern) =>
+        pattern === '.'
+          ? '**'
+          : pattern.startsWith('./')
+            ? pattern.slice(2)
+            : pattern
+      );
+
+      return this.sources.files.filter(
+        (file) => parsed.some((pattern) => minimatch(file, pattern, { matchBase: true }))
+      );
+    },
+
+    /** Adds path to the project files */
+    add: (path: string): void => {
+      if (!this.sources.files.includes(path)) {
+        this.sources.files.push(path);
+      }
+    },
+
+    /** Removes file or directory from the project files */
+    rm: (path: string): void => {
+      this.sources.files = this.sources.files.filter((file) => !file.startsWith(path));
+    },
+  };
+
+  constructor(private provided: Pick<Project, 'sources'> & Partial<Pick<Project, 'cwd'>>) {}
+
+  static async build(options?: Partial<Pick<Project, 'cwd'>>): Promise<Project> {
+    const cwd = options?.cwd ?? process.cwd();
+
+    const editorconfig = await fs.readFile(path.join(cwd, '.editorconfig'), 'utf8').catch(() => '');
+    const dependencies = await fs.readFile(path.join(cwd, 'package.json'), 'utf8').catch(() => null);
+    const gitignore = await fs.readFile(path.join(cwd, '.gitignore'), 'utf8').catch(() => '');
+
+    const ignore = gitignore
+      .split('\n')
+      .map((segment) => segment.trim().replace(/^\//, '').replace(/\/$/, '/**'))
+      .filter((segment) => segment.length && !segment.startsWith('!'))
+      .concat(['**/*.spec.{ts,js}']);
+
+    const files = await fg(['**/*.{ts,js,json,md}'], { cwd, ignore });
+    const source = new Project({
+      cwd,
+
+      sources: {
+        editorconfig,
+        ignore,
+        files,
+
+        ...(dependencies && {
+          dependencies: (() => {
+            const json: Partial<Record<'dependencies' | 'devDependencies', object>> = JSON.parse(dependencies);
+
+            return Object
+              .entries(Object.assign(json.dependencies ?? {}, json.devDependencies ?? {}))
+              .filter(([name]) => !name.startsWith('@types/'))
+              .reduce((acc, [name, version]) => _.set(acc, name, version), {});
+          })(),
+        }),
+      },
+    });
+
+    return source;
+  }
+}

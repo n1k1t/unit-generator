@@ -153,7 +153,6 @@ Returns a table of low covered project files
 Options:
   -t, --target [value]  Desired coverage target of an each file (default: "0.8")
   -l --limit [value]    Files limit (default: "5")
-  -a --all              Takes all paths provided by pattern (default: false)
   -h, --help            display help for command
 ```
 
@@ -185,7 +184,6 @@ Options:
   -m, --model [value]       AI model to use for unit tests generation (default: "gpt-4o-mini")
   -i, --iterations [value]  Iterations maximum of unit tests generation (default: "5")
   -l --limit [value]        Files limit (default: "5")
-  -a --all                  Takes all paths provided by pattern (default: false)
   -h, --help                display help for command
 ```
 
@@ -214,7 +212,6 @@ Options:
   -m, --model [value]       AI model to use for unit tests generation (default: "gemini-flash-latest")
   -i, --iterations [value]  Iterations maximum of unit tests generation (default: "5")
   -l --limit [value]        Files limit (default: "5")
-  -a --all                  Takes all paths provided by pattern (default: false)
   -h, --help                display help for command
 ```
 

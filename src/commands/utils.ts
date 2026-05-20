@@ -2,6 +2,7 @@ import cursorPosition from 'get-cursor-position';
 import minimatch from 'minimatch';
 import path from 'path';
 import fs from 'fs/promises';
+import fg from 'fast-glob';
 import _ from 'lodash';
 
 import { Readline } from 'readline/promises';
@@ -23,54 +24,54 @@ export const extractCoberturaItems = async (
     paths?: string[];
   }
 ): Promise<CoberturaItem[]> => {
-  const cwd = options?.cwd ?? process.cwd();
-  const paths = options?.paths?.map((nested) => path.join(cwd, nested)) ?? [];
-
   const target = options?.target ?? 1;
-  const cobertura = await Cobertura.build(location);
+  const cwd = options?.cwd ?? process.cwd();
 
-  if (options?.all) {
-    paths.forEach((nested) =>
-      cobertura.items.some((item) => item.path === nested)
-        ? null
-        : cobertura.items.push(CoberturaItem.build(nested))
-    );
-  }
+  const paths = (options?.paths?.map((nested) => path.join(cwd, nested)) ?? []).map((nested) => {
+    const parsed = path.parse(nested);
 
-  const filtered = cobertura.items.filter((item) => {
-    if (item.rate >= target) {
-      return false;
+    if (!parsed.ext.length && !parsed.name.endsWith('*')) {
+      return path.join(nested, '*');
     }
-    if (path.parse(item.path).name.endsWith('.spec')) {
-      return false;
-    }
-    if (paths.length && !paths.some((nested) => item.path === nested)) {
-      return false;
-    }
-    if (options?.ignore?.length && options.ignore.some((pattern) => minimatch(item.path, pattern))) {
-      return false;
+    if (parsed.ext.length && parsed.name.endsWith('.spec')) {
+      return path.join(parsed.dir, `${parsed.name.replace('.spec', '')}${parsed.ext}`);
     }
 
-    return true;
+    return nested;
   });
 
-  filtered.forEach((item) => item.assign({ path: path.relative(cwd, item.path) }));
+  const cobertura = await Cobertura.build(location);
+  const map = new Map<string, CoberturaItem>(cobertura.items.map((item) => [item.path, item]));
 
-  const separated = filtered.reduce<{
-    modules: CoberturaItem[];
-    indexes: CoberturaItem[];
-  }>((acc, item) => {
-    path.parse(item.path).name === 'index'
-      ? acc.indexes.push(item)
-      : acc.modules.push(item);
+  const found = paths.length
+    ? await fg(paths, { cwd, ignore: options?.ignore, onlyFiles: true })
+    : cobertura.items.map((item) => item.path);
 
-    return acc;
-  }, { indexes: [], modules: [] });
+  const filtered = found
+    .map((nested): CoberturaItem => {
+      const item = map.get(nested) ?? CoberturaItem.build(nested);
+      return item.assign({ path: path.relative(cwd, item.path) });
+    })
+    .filter((item) => {
+      const parsed = path.parse(item.path);
 
-  return [
-    ...separated.modules.sort((a, b) => a.rate - b.rate),
-    ...separated.indexes.sort((a, b) => a.rate - b.rate),
-  ].slice(0, options?.limit ?? Infinity);
+      if (item.rate >= target) {
+        return false;
+      }
+      if (parsed.ext !== '.ts' && parsed.ext !== '.js') {
+        return false;
+      }
+      if (parsed.name.endsWith('.spec')) {
+        return false;
+      }
+      if (options?.ignore?.length && options.ignore.some((pattern) => minimatch(item.path, pattern))) {
+        return false;
+      }
+
+      return true;
+    });
+
+  return _.sortBy(filtered, ['path']).slice(0, options?.limit ?? Infinity);
 };
 
 export const extractIgnoredPaths = async (cwd: string): Promise<string[]> => {
@@ -85,7 +86,7 @@ export const buildRenderer = () => {
   return (assistants: Assistant[]) => {
     terminal.cursorTo(0, cursor.row - 1).clearScreenDown().commit();
 
-    console.log(`model: ${assistants[0]?.context.provider.name}`);
+    console.log(`model: ${assistants[0]?.context.provider.model}`);
     console.log('');
 
     console.table(
@@ -97,7 +98,12 @@ export const buildRenderer = () => {
         iteration: assistant.steps.length,
         strategy: assistant.state.strategy,
 
-        status: assistant.state.status,
+        action: assistant.is(['COMPLETED'])
+          ? '✓'
+          : assistant.state.action
+            ? `${assistant.state.action.status === 'OK' ? '✓' : '✗'} ${assistant.state.action.message}`
+            : '⏱',
+
         spent: Number((assistant.calculateTimeSpent() / 1000).toFixed(3)),
       }))
     );

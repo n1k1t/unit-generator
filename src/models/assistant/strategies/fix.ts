@@ -1,15 +1,10 @@
-import json2md, { DataObject } from 'json2md';
-
-import { generateText, Output, stepCountIs } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { TAssistantSourceTestResult, TAssistantStrategyRunStatus } from '../types';
 import { AssistantStrategy } from './model';
-import { cast } from '../../../utils';
+import { ArticleContent } from '../../content';
 
-import env from '../../../env';
-
-export class AssistantFixStrategy extends AssistantStrategy<'FIX'> {
+export class AssistantFixStrategy extends AssistantStrategy {
   public get schema() {
     return z.object({
       imports: z.array(
@@ -18,8 +13,8 @@ export class AssistantFixStrategy extends AssistantStrategy<'FIX'> {
 
       tests: z.array(
         z.object({
-          title: z.enum(this.source.spec.tests.map((test) => test.title)).describe('Unit test title'),
-          content: z.string().describe('Code with fix of unit tests WITHOUT IMPORTS'),
+          title: z.string().describe(`Unit test title **(should be the same as title in spec)**`),
+          content: z.string().describe('Code with fix of unit tests **(without imports)**'),
         }).describe('Fix configuration')
       ).min(1).describe('List of tests those should be fixed'),
     });
@@ -36,8 +31,65 @@ export class AssistantFixStrategy extends AssistantStrategy<'FIX'> {
     }
 
     const snapshot = this.source.compileSnapshot();
+    const context = this.compileContext();
 
-    const generated = await this.generate(tested.message);
+    const generated = await this.generate({
+      schema: this.schema,
+
+      messages: {
+        system: ArticleContent
+          .build({
+            title: 'Context',
+            tag: 'h1',
+
+            content: [
+              context.overview,
+              context.project,
+              context.history,
+
+              ArticleContent.build({
+                title: 'Existing unit tests',
+
+                content: [{
+                  code: {
+                    language: this.source.spec.lang,
+                    content: this.source.spec.content,
+                  },
+                }],
+              }),
+
+              ArticleContent.build({
+                title: 'Unit test failure message',
+
+                content: [{
+                  code: {
+                    language: 'console',
+                    content: tested.message,
+                  },
+                }],
+              }),
+            ],
+          })
+          .render(),
+
+        user: ArticleContent
+          .build({
+            title: 'Task',
+            tag: 'h1',
+
+            content: [{
+              ol: [
+                'Explore the `Context` article',
+                'Analyze the unit test failure message',
+                'Analyze the existing imports in the code',
+                'Generate fixes for the unit test code and imports (make shure that new imports are not existing in the code)',
+              ],
+            }],
+          })
+          .render(),
+      },
+    });
+
     if (!generated?.tests.length) {
       return 'EMPTY';
     }
@@ -87,74 +139,6 @@ export class AssistantFixStrategy extends AssistantStrategy<'FIX'> {
     }
 
     return results.length && results.some((result) => result.status === 'PASSED') ? 'DONE' : 'FAILED';
-  }
-
-  private async generate(message: string): Promise<z.input<AssistantFixStrategy['schema']> | null> {
-    const context = this.compileContext();
-
-    const response = await generateText({
-      prompt: json2md(
-        cast<DataObject[]>([
-          { h3: 'Request identifier' },
-          { p: Date.now().toString(32) },
-
-          ...context.overview,
-          ...context.project,
-          ...context.tools,
-          ...context.history,
-
-          { h3: 'Existing unit tests' },
-          {
-            code: {
-              language: this.source.spec.lang,
-              content: this.source.spec.content,
-            },
-          },
-
-          { h3: 'Unit test failure message' },
-          {
-            code: {
-              language: 'console',
-              content: message,
-            },
-          },
-
-          { hr: '' },
-          { h1: 'Task' },
-
-          {
-            ol: [
-              'Analyze the task context described above',
-              'Analyze the unit test failure message',
-              'Analyze the existing imports in the code',
-              'Write fixes for the unit test code and imports (make shure that new imports are not existing in the code)',
-            ],
-          },
-        ])
-      ),
-
-      ...(env.debug && {
-        experimental_telemetry: {
-          isEnabled: true
-        },
-      }),
-
-      output: Output.object({ schema: this.schema }),
-      providerOptions: this.provider.options,
-
-      temperature: 0.1,
-
-      model: this.provider.model,
-      tools: this.tools,
-
-      stopWhen: stepCountIs(30),
-    }).catch((error) => this.handleAiError(error));
-
-    try {
-      return response?.output ?? null;
-    } catch (error) {
-      return this.handleAiError(error);
-    };
   }
 
   static build(

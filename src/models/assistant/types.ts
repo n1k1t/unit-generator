@@ -3,7 +3,9 @@ import type { File } from '../file';
 
 import type * as strategies from './strategies';
 
-export type TAssistantStrategyRunStatus = 'DONE' | 'EMPTY' | 'SKIPPED' | 'FAILED';
+export type TAssistantStrategyRunStatus = 'PREPARING' | 'EMPTY' | 'SKIPPED' | 'DONE' | 'FAILED';
+export type TAssistantStatus = 'PREPARING' | 'PENDING' | 'COMPLETED';
+
 export type TAssistantSourceTestResult = { status: 'PASSED' } | { status: 'FAILED', message: string };
 
 export type TAssistantStrategyName = {
@@ -25,8 +27,14 @@ export interface IAssistantStep {
 }
 
 export interface IAssistantState {
-  strategy: IAssistantStep['strategy'] | 'NONE';
-  status: TAssistantStrategyRunStatus | 'PREPARING' | 'GENERATION' | 'COMPLETED';
+  strategy: string;
+
+  action?: {
+    type: 'tool' | 'reasoning';
+    status: 'OK' | 'ERROR';
+
+    message: string;
+  };
 }
 
 export interface IAssistantEvents {

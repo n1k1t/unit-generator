@@ -1,4 +1,3 @@
-import path from 'path';
 import _ from 'lodash';
 
 import { buildRenderer, extractCoberturaItems, extractIgnoredPaths } from './utils';
@@ -7,7 +6,7 @@ import { Assistant } from '../models';
 
 import env from '../env';
 
-interface IParameters extends Partial<Pick<IUnitGeneratorCliOptions['generate'], 'all' | 'model'>> {
+interface IParameters extends Partial<Pick<IUnitGeneratorCliOptions['generate'], 'model'>> {
   limit?: number;
 
   paths?: string[];
@@ -22,15 +21,13 @@ export default async (parameters: IParameters = {}) => {
   const cwd = process.cwd();
 
   const ignore = await extractIgnoredPaths(cwd);
-  const extracted = await extractCoberturaItems(path.join(cwd, env.cobertura), {
+  const extracted = await extractCoberturaItems(env.cobertura, {
     ignore,
     target,
     cwd,
 
     paths: parameters.paths,
     limit: parameters.limit,
-
-    all: parameters.all,
   });
 
   const assistants = await Promise.all(

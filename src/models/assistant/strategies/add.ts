@@ -1,15 +1,12 @@
-import json2md, { DataObject } from 'json2md';
-
-import { generateText, Output, stepCountIs } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { TAssistantSourceTestResult, TAssistantStrategyRunStatus } from '../types';
 import { AssistantStrategy } from './model';
-import { cast } from '../../../utils';
+import { ArticleContent } from '../../content';
 
 import env from '../../../env';
 
-export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
+export class AssistantAddStrategy extends AssistantStrategy {
   public get schema() {
     return z.object({
       imports: z.array(
@@ -35,8 +32,77 @@ export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
     }
 
     const snapshot = this.source.compileSnapshot();
+    const context = this.compileContext();
 
-    const generated = await this.generate();
+    const generated = await this.generate({
+      schema: this.schema,
+
+      messages: {
+        system: ArticleContent
+          .build({
+            title: 'Context',
+            tag: 'h1',
+
+            content: [
+              context.overview,
+              context.project,
+              context.history,
+
+              ArticleContent.build({
+                title: 'All lines of code those are not covered by tests, separated by commas',
+
+                content: [{
+                  code: {
+                    language: 'txt',
+                    content: this.source.cobertura.uncovered.join(', '),
+                  },
+                }],
+              }),
+
+              ArticleContent.build({
+                title: 'Import declarations already existing in unit tests code',
+
+                content: [{
+                  code: {
+                    language: this.source.spec.lang,
+                    content: this.source.spec.imports.join('\n'),
+                  },
+                }],
+              }),
+
+              ArticleContent.build({
+                title: 'Helpers and utils already declared in unit tests code',
+
+                content: [{
+                  code: {
+                    language: this.source.spec.lang,
+                    content: this.source.spec.helpers.join('\n'),
+                  },
+                }],
+              }),
+            ],
+          })
+          .render(),
+
+        user: ArticleContent
+          .build({
+            title: 'Task',
+            tag: 'h1',
+
+            content: [{
+              ol: [
+                'Explore the `Context` article',
+                'Analyze the lines of code that need to be covered by tests',
+                'Analyze the existing imports in the code',
+                'Write unit tests only for the uncovered lines of code',
+                'Write imports (make shure that new imports are not existing in the code)',
+              ],
+            }],
+          })
+          .render(),
+      },
+    });
+
     if (!generated?.specs.length) {
       return 'EMPTY';
     }
@@ -96,83 +162,6 @@ export class AssistantAddStrategy extends AssistantStrategy<'ADD'> {
     return results.length === generated.specs.length - 1
       ? results.concat([tested]).some((result) => result.status === 'PASSED') ? 'DONE' : 'FAILED'
       : this.injectSpecs(generated, results.concat([tested]));
-  }
-
-  private async generate(): Promise<z.input<AssistantAddStrategy['schema']> | null> {
-    const context = this.compileContext();
-
-    const response = await generateText({
-      prompt: json2md(
-        cast<DataObject[]>([
-          { h3: 'Request identifier' },
-          { p: Date.now().toString(32) },
-
-          ...context.overview,
-          ...context.project,
-          ...context.tools,
-          ...context.history,
-
-          { h3: 'All lines of code those are not covered by tests, separated by commas' },
-          {
-            code: {
-              language: 'txt',
-              content: this.source.cobertura.uncovered.join(', '),
-            },
-          },
-
-          { h3: 'Import declarations already existing in unit tests code' },
-          {
-            code: {
-              language: this.source.spec.lang,
-              content: this.source.spec.imports.join('\n'),
-            },
-          },
-
-          { h3: 'Helpers and utils already declared in unit tests code' },
-          {
-            code: {
-              language: this.source.spec.lang,
-              content: this.source.spec.helpers.join('\n'),
-            },
-          },
-
-          { hr: '' },
-          { h1: 'Task' },
-
-          {
-            ol: [
-              'Analyze the task context described above',
-              'Analyze the lines of code that need to be covered by tests',
-              'Analyze the existing imports in the code',
-              'Write unit tests only for the uncovered lines of code',
-              'Write imports (make shure that new imports are not existing in the code)',
-            ],
-          },
-        ])
-      ),
-
-      ...(env.debug && {
-        experimental_telemetry: {
-          isEnabled: true,
-        },
-      }),
-
-      output: Output.object({ schema: this.schema }),
-      providerOptions: this.provider.options,
-
-      temperature: 0.1,
-
-      model: this.provider.model,
-      tools: this.tools,
-
-      stopWhen: stepCountIs(30),
-    }).catch((error) => this.handleAiError(error));
-
-    try {
-      return response?.output ?? null;
-    } catch (error) {
-      return this.handleAiError(error);
-    };
   }
 
   static build(

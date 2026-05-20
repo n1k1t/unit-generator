@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './setup';
 
 import { Command, program } from 'commander';
 
@@ -33,14 +34,12 @@ program
       .description('Returns a table of low covered project files')
       .option('-t, --target [value]', 'Desired coverage target of an each file', String(env.target))
       .option('-l --limit [value]', 'Files limit', '5')
-      .option('-a --all', 'Takes all paths provided by pattern', false)
-      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['analyze'], command: Command) =>
+      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['analyze']) =>
         commands.analyze({
           ...(options.target && { target: Number(options.target) }),
           ...(options.limit && { limit: Number(options.limit) }),
 
-          paths: command.args,
-          all: options.all,
+          paths: [pattern ?? '**'],
         })
       )
   )
@@ -52,16 +51,14 @@ program
       .option('-m, --model [value]', 'AI model to use for unit tests generation', env.model)
       .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', String(env.iterations))
       .option('-l --limit [value]', 'Files limit', '5')
-      .option('-a --all', 'Takes all paths provided by pattern', false)
-      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['generate'], command: Command) =>
+      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['generate']) =>
         commands.generate({
           ...(options.iterations && { iterations: Number(options.iterations) }),
           ...(options.target && { target: Number(options.target) }),
           ...(options.limit && { limit: Number(options.limit) }),
 
           model: options.model,
-          paths: command.args,
-          all: options.all,
+          paths: [pattern ?? '**'],
         })
       )
   )
@@ -72,15 +69,13 @@ program
       .option('-m, --model [value]', 'AI model to use for unit tests generation', env.model)
       .option('-i, --iterations [value]', 'Iterations maximum of unit tests generation', String(env.iterations))
       .option('-l --limit [value]', 'Files limit', '5')
-      .option('-a --all', 'Takes all paths provided by pattern', false)
-      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['fix'], command: Command) =>
+      .action((pattern: string | undefined, options: IUnitGeneratorCliOptions['fix']) =>
         commands.fix({
           ...(options.iterations && { iterations: Number(options.iterations) }),
           ...(options.limit && { limit: Number(options.limit) }),
 
           model: options.model,
-          paths: command.args,
-          all: options.all,
+          paths: [pattern ?? '**'],
         })
       )
   )

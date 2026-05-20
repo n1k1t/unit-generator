@@ -1,5 +1,4 @@
 import { exec } from 'child_process';
-import path from 'path';
 
 import { Cobertura } from '../models';
 import env from '../env';
@@ -11,6 +10,6 @@ export default async () => {
     )
   );
 
-  const cobertura = await Cobertura.build(path.join(process.cwd(), env.cobertura));
+  const cobertura = await Cobertura.build(env.cobertura);
   console.table([{ rate: cobertura.rate, updated: new Date(cobertura.timestamp).toLocaleString() }]);
 }
