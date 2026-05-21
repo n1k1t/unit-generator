@@ -184,6 +184,8 @@ export abstract class AssistantStrategy extends EventEmitter<{
       user: string;
       system: string;
 
+      info?: string;
+
       history?: {
         actions: (IAgentToolCall | IAgentReasoning)[];
         provider?: ProviderMetadata;
@@ -203,14 +205,14 @@ export abstract class AssistantStrategy extends EventEmitter<{
       map: cast<Record<string, TAgentAction>>({}),
     };
 
-    const info = ArticleContent
+    const info = provided.messages.info ?? ArticleContent
       .build({
         title: 'Request info',
 
         content: [
           { p: `**Identifier:** ${Date.now().toString(32)}` },
           { p: `**Current date/time in ISO format:** ${new Date().toISOString()}` },
-          { p: `**Current attempt of the task completion:** ${iteration}/${limit}` },
+          { p: `**Steps limit:** ${limit}` },
         ],
       })
       .render();
@@ -435,6 +437,8 @@ export abstract class AssistantStrategy extends EventEmitter<{
         schema: provided.schema,
 
         messages: {
+          info,
+
           system: provided.messages.system,
           user: provided.messages.user,
 
