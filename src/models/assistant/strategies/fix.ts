@@ -13,7 +13,7 @@ export class AssistantFixStrategy extends AssistantStrategy {
 
       tests: z.array(
         z.object({
-          title: z.string().describe(`Unit test title **(should be the same as title in spec)**`),
+          title: z.string().describe(`Unit test title **(find in the \`Unit tests titles\` article)**`),
           content: z.string().describe('Code with fix of unit tests **(without imports)**'),
         }).describe('Fix configuration')
       ).min(1).describe('List of tests those should be fixed'),
@@ -46,6 +46,14 @@ export class AssistantFixStrategy extends AssistantStrategy {
               context.overview,
               context.project,
               context.history,
+
+              ArticleContent.build({
+                title: 'Unit tests titles',
+
+                content: [{
+                  ul: this.source.spec.tests.map((test) => test.title),
+                }],
+              }),
 
               ArticleContent.build({
                 title: 'Existing unit tests',
@@ -120,12 +128,12 @@ export class AssistantFixStrategy extends AssistantStrategy {
     for (const fix of generated.tests) {
       this.source.save();
 
-      const found = this.source.spec.tests.find((test) => test.title === fix.title);
+      const found = this.source.spec.tests.find((test) => test.title.includes(fix.title));
       if (!found) {
         continue;
       }
 
-      this.source.spec.replace(found.content, fix.content);
+      this.source.spec.replace(found.content.trim(), fix.content.trim());
       await this.source.spec.write();
 
       const tested = await this.source.test(fix.title);

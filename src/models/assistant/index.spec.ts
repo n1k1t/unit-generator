@@ -159,6 +159,7 @@ it('should skip strategies not in context.strategies list', async () => {
     spec: {
       content: 'some content',
       remove: jest.fn(),
+      pretty: jest.fn().mockResolvedValue(undefined),
     },
   } as unknown as AssistantSource;
   const mockStrategy1 = {

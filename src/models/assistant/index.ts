@@ -102,11 +102,14 @@ export class Assistant {
       }
 
       this.state.strategy = strategy.name;
-
       const status = await strategy.run();
+
       if (status === 'SKIPPED') {
         skipsCounter();
         continue;
+      }
+      if (status === 'DONE') {
+        await this.source.spec.pretty();
       }
 
       step.strategy = strategy.name;

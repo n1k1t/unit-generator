@@ -33,7 +33,7 @@ export class AttachmentContent extends Content<'attachment', {
           },
         },
       ])
-    )
+    ).trim();
   }
 
   static build(

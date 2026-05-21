@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import _ from 'lodash';
 
 import { v4 as genUid } from 'uuid';
 import { spawn } from 'child_process';
@@ -78,7 +79,7 @@ export class AssistantSource {
       [
         `-- ${this.spec.path}`,
         '--coverage --forceExit',
-        `--testNamePattern="${title}"`,
+        `--testNamePattern="${_.escapeRegExp(title)}"`,
         `--coverageDirectory="${this.temp}"`,
         `--collectCoverageFrom="${this.code.path}"`,
       ],

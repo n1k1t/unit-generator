@@ -1,6 +1,8 @@
-import * as typescript from 'recast/parsers/typescript';
-import * as babel from 'recast/parsers/babel-ts';
 import _ from 'lodash';
+
+import * as typescript from 'recast/parsers/typescript';
+import * as prettier from 'prettier';
+import * as babel from 'recast/parsers/babel-ts';
 
 import { namedTypes } from 'ast-types';
 import * as recast from 'recast';
@@ -28,6 +30,18 @@ export class Spec extends File {
   public helpers: string[] = [];
 
   public tests: ISpecTest[] = [];
+
+  /** Runs `prettier` over the spec file */
+  public async pretty(): Promise<void> {
+    const options = await prettier.resolveConfig(this.path, { editorconfig: true }).catch(() => null);
+    const formatted = await prettier
+      .format(this.content, { printWidth: 120, filepath: this.path, ...(options ?? {}) })
+      .catch(() => null);
+
+    if (formatted) {
+      await this.write(formatted);
+    }
+  }
 
   public parse(): this {
     const nodes = this.extractAstNodes();
@@ -98,9 +112,16 @@ export class Spec extends File {
           const title = _.get(expression, 'arguments')[0];
           const value = _.get(title, 'value', '');
 
+          const start = 'start' in node ? node.start : null;
+          const end = 'end' in node ? node.end : null;
+
+          const content = (typeof start === 'number' && typeof end === 'number')
+            ? this.content.substring(start, end)
+            : recast.print(node).code;
+
           acc.push({
-            title: prefix ? `${prefix}.${value}` : value,
-            content: recast.print(node).code.replace(`${env.marker}\n`, ''),
+            title: prefix ? `${prefix} ${value}` : value,
+            content: content.replace(`${env.marker}\n`, ''),
           });
         }
 
@@ -111,7 +132,7 @@ export class Spec extends File {
           const body = _.get(content, 'body.body');
 
           if (Array.isArray(body)) {
-            acc.push(...this.extractTests(body, prefix ? `${prefix}.${value}` : value));
+            acc.push(...this.extractTests(body, prefix ? `${prefix} ${value}` : value));
           }
         }
 
