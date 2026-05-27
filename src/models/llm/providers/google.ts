@@ -29,9 +29,9 @@ export class LlmGoogleProvider extends LlmProvider<GoogleLanguageModelOptions> {
     parameters: SetPartialKeys<LlmGoogleProvider['provided'], 'options'>
   ): LlmGoogleProvider {
     return new LlmGoogleProvider(model, {
-      connection: parameters.connection,
+      ...parameters,
 
-      options: {
+      options: parameters.options ?? {
         thinkingConfig: {
           thinkingBudget: 2048,
           includeThoughts: true,

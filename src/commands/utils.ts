@@ -7,7 +7,7 @@ import _ from 'lodash';
 
 import { Readline } from 'readline/promises';
 
-import { Assistant, Cobertura, CoberturaItem } from '../models';
+import { Assistant, Cobertura, CoberturaItem, Project } from '../models';
 
 export const extractCoberturaItems = async (
   location: string,
@@ -41,10 +41,13 @@ export const extractCoberturaItems = async (
   });
 
   const cobertura = await Cobertura.build(location);
+  const project = await Project.build({ cwd });
+
+  const ignore = project.sources.ignore.concat(options?.ignore ?? []);
   const map = new Map<string, CoberturaItem>(cobertura.items.map((item) => [item.path, item]));
 
   const found = paths.length
-    ? await fg(paths, { cwd, ignore: options?.ignore, onlyFiles: true })
+    ? await fg(paths, { cwd, ignore, onlyFiles: true })
     : cobertura.items.map((item) => item.path);
 
   const filtered = found
@@ -65,6 +68,9 @@ export const extractCoberturaItems = async (
         return false;
       }
       if (options?.ignore?.length && options.ignore.some((pattern) => minimatch(item.path, pattern))) {
+        return false;
+      }
+      if (ignore.some((pattern) => minimatch(item.path, pattern))) {
         return false;
       }
 

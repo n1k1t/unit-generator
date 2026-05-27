@@ -31,10 +31,10 @@ export class LlmOpenaiProvider extends LlmProvider<{
     parameters: SetPartialKeys<LlmOpenaiProvider['provided'], 'options'>
   ): LlmOpenaiProvider {
     return new LlmOpenaiProvider(model, {
-      connection: parameters.connection,
+      ...parameters,
 
-      options: {
-        reasoningEffort: parameters.options?.reasoningEffort ?? 'low',
+      options: parameters.options ?? {
+        reasoningEffort: 'low',
       },
     });
   }

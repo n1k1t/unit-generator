@@ -34,12 +34,12 @@ export class LlmAnthropicProvider extends LlmProvider<{
     parameters: SetPartialKeys<LlmAnthropicProvider['provided'], 'options'>
   ): LlmAnthropicProvider {
     return new LlmAnthropicProvider(model, {
-      connection: parameters.connection,
+      ...parameters,
 
-      options: {
+      options: parameters.options ?? {
         thinking: {
-          type: parameters.options?.thinking?.type ?? 'enabled',
-          budgetTokens: parameters.options?.thinking?.budgetTokens ?? 1024,
+          type: 'enabled',
+          budgetTokens: 1024,
         },
       },
     });

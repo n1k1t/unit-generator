@@ -28,9 +28,6 @@ export class LlmMistralProvider extends LlmProvider {
     model: string,
     parameters: SetPartialKeys<LlmMistralProvider['provided'], 'options'>
   ): LlmMistralProvider {
-    return new LlmMistralProvider(model, {
-      connection: parameters.connection,
-      options: parameters.options ?? {},
-    });
+    return new LlmMistralProvider(model, { ...parameters, options: parameters.options ?? {} });
   }
 }
